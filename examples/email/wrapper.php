@@ -11,6 +11,8 @@ namespace ProcessWire;
  * @var string $subject Email subject (set automatically by EmailService::send())
  * @var string|null $preheader Optional preview text shown in the inbox list
  * @var Config $config
+ *
+ * The lang attribute is translatable (context "HTML lang attribute").
  */
 
 $siteName = $config->httpHost;
@@ -18,7 +20,7 @@ $homeUrl = $config->urls->httpRoot;
 
 ?>
 <!DOCTYPE html>
-<html lang="de">
+<html lang="<?= $sanitizer->entities(_x('en', 'HTML lang attribute')) ?>">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">

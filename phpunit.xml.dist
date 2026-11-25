@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Integration tests for EmailService. They boot the ProcessWire installation
+	this module is installed in (or the one in PW_ROOT) and run every test inside
+	a database transaction that is rolled back afterwards. No email is sent.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         executionOrder="random"
+         beStrictAboutOutputDuringTests="true"
+         failOnRisky="true"
+         failOnWarning="true">
+	<testsuites>
+		<testsuite name="EmailService">
+			<directory>tests</directory>
+		</testsuite>
+	</testsuites>
+	<source ignoreIndirectDeprecations="true">
+		<include>
+			<file>EmailService.module</file>
+			<file>ProcessEmailLog.module</file>
+			<directory suffix=".php">views</directory>
+		</include>
+	</source>
+</phpunit>

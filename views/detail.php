@@ -56,9 +56,10 @@ $iframeUrl = $adminPage->url . 'iframe/?id=' . (int) $entry['id'];
 
 		<form method="post" action="<?= $adminPage->url ?>resend/" style="display:inline;">
 			<input type="hidden" name="id" value="<?= (int) $entry['id'] ?>">
+			<?= session()->CSRF->renderInput() ?>
 			<button type="submit" name="submit_resend" value="1"
 			        class="ui-button ui-state-default"
-			        onclick="return confirm('<?= __('Resend this email?') ?>')">
+			        onclick="return confirm(<?= sanitizer()->entities(json_encode(html_entity_decode(__('Resend this email?'), ENT_QUOTES, 'UTF-8'))) ?>)">
 				<i class="fa fa-repeat"></i> <?= __('Resend') ?>
 			</button>
 		</form>

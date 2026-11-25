@@ -3,12 +3,29 @@
 namespace ProcessWire;
 
 /**
+ * Template preview: template list on the left, preview with a toolbar
+ * (format, language, device) on the right.
+ *
  * @var array $templates Registered templates
- * @var string $selectedTemplate
- * @var string $previewHtml
+ * @var Language[] $languages Languages indexed by id, empty without LanguageSupport
+ * @var array{template: string, format: string, size: string, language: int} $state
+ * @var array<string, string> $sizes Preview widths by size name
+ * @var bool $canRender Whether the selected template renders
+ * @var bool $hasTextTemplate Whether the selected template has a .txt.php version
+ * @var ProcessEmailLog $process
  * @var Page $adminPage
- * @var Config $config
+ * @var Sanitizer $sanitizer
  */
+
+$sizeLabels = [
+	'mobile' => ['icon' => 'phone', 'label' => __('Phone')],
+	'tablet' => ['icon' => 'tablet', 'label' => __('Tablet')],
+	'desktop' => ['icon' => 'desktop', 'label' => __('Desktop')],
+];
+$formatLabels = [
+	'html' => ['icon' => 'code', 'label' => __('HTML')],
+	'text' => ['icon' => 'file-text', 'label' => __('Text')],
+];
 
 ?>
 <?php if (!count($templates)): ?>
@@ -21,95 +38,223 @@ namespace ProcessWire;
 
 <?php else: ?>
 
-	<div style="display:grid;grid-template-columns:220px 1fr;gap:20px;">
+	<div id="email-preview" class="uk-grid-medium" uk-grid>
 
-		<nav>
+		<div class="uk-width-1-1 uk-width-1-4@m uk-width-1-5@l">
+			<div class="email-preview-bar uk-flex uk-flex-middle uk-margin-small-bottom">
+				<h3 class="email-preview-label uk-margin-remove"><?= __('Templates') ?></h3>
+				<span class="email-preview-count uk-badge uk-margin-small-left"><?= count($templates) ?></span>
+			</div>
+			<div class="uk-card uk-card-default uk-card-small uk-card-body">
+				<ul class="uk-nav uk-nav-default">
+					<?php foreach ($templates as $key => $tplInfo):
+						$active = $state['template'] === $key;
+						$url = $process->getPreviewUrl(array_merge($state, ['template' => $key]));
+					?>
+						<li<?= $active ? ' class="uk-active"' : '' ?>>
+							<a href="<?= $sanitizer->entities($url) ?>" class="email-preview-template"<?= $active ? ' aria-current="page"' : '' ?>>
+								<?= $sanitizer->entities($tplInfo['label']) ?>
+							</a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
+			</div>
+		</div>
 
-			<ul class="uk-iconnav uk-margin-small-bottom">
-				<li><a href="#" class="email-preview-size" data-width="377px" title="Mobile" uk-icon="icon: phone" uk-tooltip="<?= __('Phone'); ?>"></a></li>
-				<li><a href="#" class="email-preview-size" data-width="770px" title="Tablet" uk-icon="icon: tablet" uk-tooltip="<?= __('Tablet'); ?>"></a></li>
-				<li><a href="#" class="email-preview-size uk-active" data-width="100%" title="Desktop" uk-icon="icon: desktop" uk-tooltip="<?= __('Desktop'); ?>"></a></li>
-				<li class="uk-margin-auto-left"></li>
-				<li><a href="#" class="email-preview-format uk-active" data-format="html" uk-icon="icon: code" uk-tooltip="<?= __('HTML'); ?>"></a></li>
-				<li><a href="#" class="email-preview-format" data-format="text" uk-icon="icon: file-text" uk-tooltip="<?= __('Text'); ?>"></a></li>
-			</ul>
+		<div class="uk-width-expand">
 
-			<hr>
+			<div class="email-preview-bar uk-flex uk-flex-middle uk-flex-wrap uk-margin-small-bottom" style="gap:8px 32px;">
 
-			<!-- <p class="uk-text-small uk-text-muted uk-text-italic"><?= __('Templates'); ?></p> -->
+				<ul class="uk-subnav uk-subnav-pill uk-margin-remove-vertical" aria-label="<?= __('Format') ?>">
+					<?php foreach ($formatLabels as $format => $info): ?>
+						<li<?= $state['format'] === $format ? ' class="uk-active"' : '' ?>>
+							<a href="#" data-preview="format" data-value="<?= $format ?>">
+								<span uk-icon="icon: <?= $info['icon'] ?>; ratio: .8"></span>
+								<?= $sanitizer->entities($info['label']) ?>
+							</a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
 
-			<ul class="uk-nav uk-nav-default">
-				<?php foreach ($templates as $key => $tplInfo):
-					$url = $adminPage->url . 'preview/?template=' . urlencode($key);
-					$active = $selectedTemplate === $key;
-				?>
-					<li<?= $active ? ' class="uk-active"' : '' ?>>
-						<a href="<?= $url ?>"<?= $active ? ' style="font-weight:600;"' : '' ?>>
-							<?= sanitizer()->entities($tplInfo['label']) ?>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-		</nav>
+				<?php if (count($languages) > 1): ?>
+					<div class="uk-flex uk-flex-middle">
+						<span class="uk-text-muted uk-margin-small-right" uk-icon="icon: world; ratio: .9" uk-tooltip="<?= __('Language') ?>"></span>
+						<ul class="uk-subnav uk-subnav-pill uk-margin-remove-vertical" aria-label="<?= __('Language') ?>">
+							<?php foreach ($languages as $id => $language):
+								$label = (string) $language->get('title') ?: $language->name;
+							?>
+								<li<?= $state['language'] === $id ? ' class="uk-active"' : '' ?>>
+									<a href="#" data-preview="language" data-value="<?= (int) $id ?>"><?= $sanitizer->entities($label) ?></a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+				<?php endif; ?>
 
-		<div style="display:flex;justify-content:center;">
-			<?php if ($selectedTemplate && $previewHtml): ?>
+				<ul class="uk-iconnav uk-margin-auto-left" aria-label="<?= __('Device') ?>">
+					<?php foreach ($sizeLabels as $size => $info): ?>
+						<li<?= $state['size'] === $size ? ' class="uk-active"' : '' ?>>
+							<a href="#" data-preview="size" data-value="<?= $size ?>" uk-icon="icon: <?= $info['icon'] ?>"
+							   uk-tooltip="<?= $sanitizer->entities($info['label']) ?>" aria-label="<?= $sanitizer->entities($info['label']) ?>"></a>
+						</li>
+					<?php endforeach; ?>
+				</ul>
 
-				<?php $iframeUrl = $adminPage->url . 'iframe/?template=' . urlencode($selectedTemplate); ?>
+			</div>
 
-				<iframe id="email-preview-iframe"
-				        src="<?= $iframeUrl ?>"
-				        style="width:100%;border:1px solid #ddd;border-radius:4px;background:#fff;transition:width .2s ease;"
-				        scrolling="no"
-				        onload="this.style.height=this.contentDocument.documentElement.scrollHeight+'px'"></iframe>
+			<?php if ($state['template'] !== '' && $canRender): ?>
 
-			<?php elseif ($selectedTemplate): ?>
+				<div id="email-preview-text-hint" class="uk-alert uk-alert-primary uk-text-small uk-padding-small uk-margin-small-bottom"<?= $hasTextTemplate || $state['format'] !== 'text' ? ' hidden' : '' ?>>
+					<?= __('This template has no text version (.txt.php). The text part is generated from the HTML.') ?>
+				</div>
 
-				<div class="uk-alert uk-alert-warning" style="width:100%;">
+				<?php /* the box takes the width of the selected device */ ?>
+				<div class="uk-flex uk-flex-center">
+					<div id="email-preview-frame" class="uk-card uk-card-default"
+					     style="width:<?= $sanitizer->entities($sizes[$state['size']]) ?>;max-width:100%;overflow:hidden;transition:width .2s ease;">
+						<iframe id="email-preview-iframe"
+						        src="<?= $sanitizer->entities($process->getIframeUrl($state)) ?>"
+						        title="<?= $sanitizer->entities($templates[$state['template']]['label']) ?>"
+						        style="display:block;width:100%;height:600px;border:0;background:#fff;"
+						        scrolling="no"></iframe>
+					</div>
+				</div>
+
+			<?php elseif ($state['template'] !== ''): ?>
+
+				<div class="uk-alert uk-alert-warning uk-margin-remove">
 					<?= __('Could not render template. Check that the template file exists and sample data is valid.') ?>
 				</div>
 
 			<?php else: ?>
 
-				<div class="uk-text-muted uk-text-center" style="width:100%;padding-top:200px;">
-					<?= __('Select a template to preview.') ?>
+				<div class="uk-card uk-card-default uk-card-body">
+					<div class="uk-placeholder uk-text-center uk-text-muted uk-margin-remove">
+						<?= __('Select a template to preview.') ?>
+					</div>
 				</div>
 
 			<?php endif; ?>
+
 		</div>
 
 	</div>
 
 	<script>
-	document.querySelectorAll('.email-preview-size').forEach(function(link) {
-		link.addEventListener('click', function(e) {
-			e.preventDefault();
-			var iframe = document.getElementById('email-preview-iframe');
-			if (!iframe) return;
-			iframe.style.width = this.dataset.width;
-			iframe.contentDocument.documentElement.offsetHeight;
-			iframe.style.height = iframe.contentDocument.documentElement.scrollHeight + 'px';
-			document.querySelectorAll('.email-preview-size').forEach(function(a) {
-				a.classList.remove('uk-active');
-			});
-			this.classList.add('uk-active');
-		});
-	});
+	(function() {
+		var root = document.getElementById('email-preview');
+		var iframe = document.getElementById('email-preview-iframe');
+		var frame = document.getElementById('email-preview-frame');
+		var hint = document.getElementById('email-preview-text-hint');
+		var hasTextTemplate = <?= $hasTextTemplate ? 'true' : 'false' ?>;
+		var sizes = <?= json_encode($sizes) ?>;
+		var state = <?= json_encode([
+			'format' => $state['format'],
+			'size' => $state['size'],
+			'language' => $state['language'],
+		]) ?>;
 
-	document.querySelectorAll('.email-preview-format').forEach(function(link) {
-		link.addEventListener('click', function(e) {
-			e.preventDefault();
-			var iframe = document.getElementById('email-preview-iframe');
-			if (!iframe) return;
-			var url = new URL(iframe.src);
-			url.searchParams.set('format', this.dataset.format);
-			iframe.src = url.toString();
-			document.querySelectorAll('.email-preview-format').forEach(function(a) {
-				a.classList.remove('uk-active');
+		// height: at least the space that is left in the window (so short emails don't make the
+		// page scroll), longer emails make the preview taller, so the page scrolls and not the iframe
+		var minHeight = 320;
+
+		function contentHeight() {
+			try {
+				var doc = iframe.contentDocument;
+				if (!doc || !doc.documentElement) return 0;
+				// measure without the current height stretching the document
+				iframe.style.height = '0px';
+				return Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
+			} catch (e) {
+				return 0;
+			}
+		}
+
+		// space the page needs below the preview (paddings, footer); measured while the preview
+		// is taller than the window, otherwise the sticky footer of the admin theme would distort it
+		function spaceBelow() {
+			iframe.style.height = (window.innerHeight * 2) + 'px';
+			var frameBottom = frame.getBoundingClientRect().bottom + window.scrollY;
+			return Math.max(0, document.documentElement.scrollHeight - frameBottom);
+		}
+
+		function fitIframe() {
+			if (!iframe || !frame) return;
+			var top = frame.getBoundingClientRect().top + window.scrollY;
+			var available = Math.floor(window.innerHeight - top - spaceBelow());
+			iframe.style.height = Math.max(minHeight, available, contentHeight()) + 'px';
+		}
+
+		function applyParams(url) {
+			url.searchParams.set('format', state.format);
+			url.searchParams.set('size', state.size);
+			if (state.language) url.searchParams.set('language', String(state.language));
+			else url.searchParams.delete('language');
+			return url;
+		}
+
+		// keep size, format and language in the page URL and in the template links
+		function syncUrls() {
+			try {
+				history.replaceState(null, '', applyParams(new URL(window.location.href)).toString());
+			} catch (e) {}
+			root.querySelectorAll('.email-preview-template').forEach(function(link) {
+				link.href = applyParams(new URL(link.href, window.location.href)).toString();
 			});
-			this.classList.add('uk-active');
+		}
+
+		function reloadIframe() {
+			if (!iframe) return;
+			var url = applyParams(new URL(iframe.src, window.location.href));
+			url.searchParams.delete('size');
+			iframe.src = url.toString();
+		}
+
+		function markActive(control, value) {
+			root.querySelectorAll('[data-preview="' + control + '"]').forEach(function(el) {
+				el.parentElement.classList.toggle('uk-active', el.dataset.value === value);
+			});
+		}
+
+		function setState(control, value) {
+			if (control === 'language') value = parseInt(value, 10) || 0;
+			if (state[control] === value) return;
+			state[control] = value;
+			markActive(control, String(value));
+
+			if (control === 'size') {
+				if (frame) {
+					frame.style.width = sizes[value];
+					// a narrower email gets taller, measure after the width transition
+					setTimeout(fitIframe, 250);
+				}
+			} else {
+				if (control === 'format' && hint) {
+					hint.hidden = hasTextTemplate || state.format !== 'text';
+					// the hint moves the preview down
+					fitIframe();
+				}
+				reloadIframe();
+			}
+			syncUrls();
+		}
+
+		root.addEventListener('click', function(e) {
+			var el = e.target.closest('[data-preview]');
+			if (!el) return;
+			e.preventDefault();
+			setState(el.dataset.preview, el.dataset.value);
 		});
-	});
+
+		if (iframe) {
+			iframe.addEventListener('load', fitIframe);
+			window.addEventListener('resize', fitIframe);
+			// in case the iframe finished loading before this script ran
+			fitIframe();
+		}
+
+		syncUrls();
+	})();
 	</script>
 
 <?php endif; ?>

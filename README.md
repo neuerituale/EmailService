@@ -7,8 +7,9 @@ ProcessWire-Modul für templated E-Mails mit CSS-Inlining, Versand-Log und Admin
 - E-Mail-Templates als PHP-Dateien mit voller ProcessWire-API, standardmäßig in `/site/templates/email/`
 - Gemeinsamer Wrapper (Layout) und eine CSS-Datei, die automatisch inline gesetzt wird ([Emogrifier](https://github.com/MyIntervals/emogrifier))
 - Optionale Plain-Text-Templates, sonst wird der Text aus dem HTML erzeugt
+- Mehrsprachig: Templates werden in einer wählbaren Sprache gerendert (`__()`, mehrsprachige Felder)
 - Log aller versendeten E-Mails, auch solcher, die andere Module direkt über `WireMail` verschicken
-- Admin-Seite **Setup > Email Log** (`ProcessEmailLog`): Liste mit Filtern, Detailansicht, erneut senden, löschen, Template-Vorschau für Phone/Tablet/Desktop
+- Admin-Seite **Setup > Email Log** (`ProcessEmailLog`): Liste mit Filtern, Detailansicht, erneut senden, löschen, Template-Vorschau für Phone/Tablet/Desktop, HTML/Text und alle Sprachen
 - Automatisches Aufräumen alter Log-Einträge über ProcessCronJobs oder LazyCron
 
 ## Voraussetzungen
@@ -54,6 +55,8 @@ Ist die Klasse `Pelago\Emogrifier\CssInliner` noch nicht geladen, sucht das Modu
 5. `../vendor/autoload.php`, falls der Docroot ein Unterordner des Composer-Projekts ist (z. B. `projekt/public/`) und dort eine `composer.json` liegt
 
 Welche Datei verwendet wurde, steht in der Modul-Konfiguration unter dem Feld **Composer-Autoload-Datei**.
+
+Fehlt Emogrifier oder existiert eine konfigurierte Autoload-Datei nicht, erscheint eine Warnung bei der Installation, in der Modul-Konfiguration und (für Superuser) auf den Seiten unter **Setup > E-Mail Logs**.
 
 ## Konfiguration
 
@@ -169,8 +172,11 @@ $sent = $emailService->send([
 | `data` | array | Daten für Template und Wrapper |
 | `from` | string | Absender, Fallback: Konfiguration bzw. `$config->adminEmail` |
 | `fromName` | string | Absender-Name |
-| `cc` | string | CC-Empfänger |
-| `bcc` | string | BCC-Empfänger |
+| `cc` | string\|array | CC-Empfänger, kommagetrennt oder als Array. Ungültige Adressen werden verworfen. |
+| `bcc` | string\|array | BCC-Empfänger, wie `cc` |
+| `language` | Language\|int\|string | Sprache (Objekt, ID oder Name), in der gerendert wird. Standard: aktuelle Benutzersprache |
+
+`cc`/`bcc` nutzen `$mail->cc()`/`bcc()`, wenn das Mail-Modul sie anbietet (z. B. WireMailSmtp), sonst den jeweiligen Header.
 
 ### Nur rendern (ohne Versand)
 
@@ -185,6 +191,44 @@ $text = $emailService->renderText('password-reset', [...]); // '' wenn keine .tx
 
 Das ist praktisch, wenn ein anderes Modul den Versand selbst übernimmt und nur das Layout von EmailService nutzen soll.
 
+## Mehrsprachigkeit
+
+Mit installiertem **LanguageSupport** rendern `render()`, `renderText()`, `renderTextBody()` und `send()` in der übergebenen Sprache. Währenddessen wird die Benutzersprache umgeschaltet und danach wiederhergestellt, auch bei Exceptions. Dadurch liefern `__()`, `_x()` und mehrsprachige Felder in Templates und Wrapper die richtige Sprache.
+
+```php
+$emailService->send([
+	'to' => $recipient->email,
+	'template' => 'welcome',
+	'language' => $recipient->language, // Language, ID oder Name ('de')
+	'subject' => '…',
+]);
+```
+
+Texte außerhalb der Templates, z. B. den Betreff, übersetzt `withLanguage()` in derselben Sprache:
+
+```php
+$emailService->withLanguage($recipient->language, fn() => $emailService->send([
+	'to' => $recipient->email,
+	'template' => 'welcome',
+	'subject' => __('Welcome!'),
+]));
+```
+
+- Eine unbekannte Sprache wird geloggt. `send()` gibt dann `false` zurück, `render()` einen leeren String. `resolveLanguage()` und `withLanguage()` werfen eine `WireException`.
+- Ohne LanguageSupport wird `language` ignoriert.
+- Templates werden wie alle Site-Dateien unter **Setup > Languages > Sprache > Site-Dateien** übersetzt. Die Beispiel-Templates verwenden englische Quelltexte. Deutsche Übersetzungen dafür liegen in [`examples/languages/de.csv`](examples/languages/de.csv).
+- `__()` gibt Übersetzungen HTML-kodiert zurück. In `.txt.php`-Templates deshalb `html_entity_decode()` verwenden, siehe [`examples/email/welcome.txt.php`](examples/email/welcome.txt.php).
+
+### Übersetzungen des Moduls
+
+Die Admin-Oberfläche ist übersetzt ([`languages/de.csv`](languages/de.csv)). Import: **Modules > EmailService**, in der Info-Tabelle unter **Languages** auf „install translations“ klicken, oder per API:
+
+```php
+$languages->importTranslationsFile('de', $config->paths->EmailService . 'languages/de.csv');
+```
+
+Den übersetzten Seitentitel („E-Mail Logs“) setzt `ProcessEmailLog` bei Installation und Upgrade für jede Sprache, die noch keinen Titel hat. Nachträglich: `$modules->get('ProcessEmailLog')->translatePageTitle()`.
+
 ## Templates für die Vorschau registrieren
 
 Damit Templates unter **Setup > Email Log > Vorschau** erscheinen, werden sie mit Beispieldaten registriert. Das geht in `/site/ready.php` oder in der `ready()`-Methode eines eigenen Moduls:
@@ -194,13 +238,20 @@ $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event
 	/** @var EmailService $service */
 	$service = $event->object;
 
-	$service->registerTemplate('welcome', 'Willkommens-E-Mail', [
-		'subject' => 'Willkommen!',
+	$service->registerTemplate('welcome', __('Welcome email'), [
 		'userName' => 'Max Mustermann',
 		'loginUrl' => 'https://example.com/login/',
 	]);
+
+	// Closure: wird in der Vorschausprache aufgerufen, __() liefert also die passende Übersetzung
+	$service->registerTemplate('password-reset', __('Password reset'), fn() => [
+		'subject' => __('Reset your password'),
+		'code' => '123456',
+	]);
 });
 ```
+
+In der Vorschau lassen sich Größe (Phone/Tablet/Desktop), Format (HTML/Text) und Sprache umschalten. Die Einstellungen stehen in der URL und bleiben beim Wechsel des Templates erhalten. So lassen sich alle Varianten schnell nacheinander prüfen. Hat ein Template keine `.txt.php`, zeigt die Text-Ansicht den aus dem HTML erzeugten Text, also genau das, was `send()` verschickt.
 
 Weitere Beispiele stehen in [`examples/ready.php`](examples/ready.php).
 
@@ -231,7 +282,7 @@ Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absende
 - Liste aller E-Mails, filterbar nach Status und Template, mit Pagination
 - Detailansicht mit HTML-Vorschau und **Erneut senden**
 - Löschen aller bzw. der gefilterten Einträge (nur Superuser)
-- Vorschau registrierter Templates mit Beispieldaten in Phone-, Tablet- und Desktop-Breite, als HTML und als Text
+- Vorschau registrierter Templates mit Beispieldaten in Phone-, Tablet- und Desktop-Breite, als HTML und als Text, in allen Sprachen
 
 ## Namen
 
@@ -245,10 +296,28 @@ Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absende
 | Admin-Seite | `setup/email-log` |
 | Hooks | `EmailService::registerTemplates`, `EmailService::detectTemplate` |
 
+## Tests
+
+Integrationstests mit PHPUnit. Sie booten die ProcessWire-Installation, in der das Modul liegt (oder die aus `PW_ROOT`). Voraussetzung: EmailService ist installiert, die Tabelle `email_log` ist InnoDB.
+
+```bash
+cd site/modules/EmailService
+composer install
+vendor/bin/phpunit
+```
+
+- Jeder Test läuft in einer Datenbank-Transaktion, die danach zurückgerollt wird.
+- `WireMail::send` wird abgefangen. Es wird **keine** E-Mail verschickt.
+- Einträge ins Log `email-service` werden abgefangen, die Log-Datei bleibt unverändert.
+- Templates kommen aus `tests/fixtures/templates/email/`, nicht aus `/site/templates/`.
+- Sprach-Tests laufen nur mit mindestens zwei Sprachen, Übersetzungs-Tests nur nach dem Import von `languages/de.csv`. Sonst werden sie übersprungen.
+- Die Reihenfolge ist zufällig (`executionOrder="random"`), damit Abhängigkeiten zwischen Tests auffallen.
+
 ## Upgrade
 
 Beim Aktualisieren der Moduldateien führt ProcessWire `___upgrade()` automatisch aus (Modules > Refresh):
 
 - **< 2.1.0:** `ProcessEmailLog` wird nachinstalliert, falls es fehlt.
 - **< 2.2.0:** Ein bisheriger root-relativer Template-Pfad wie `/site/templates/email/` wird auf `email/` umgestellt. Der alte Wert würde aber auch ohne Umstellung weiterhin aufgelöst.
+- **2.3.0 / ProcessEmailLog 1.1.0:** Mehrsprachigkeit. `registerTemplate()` akzeptiert eine Closure als Beispieldaten. Die Seite „Email Log“ bekommt übersetzte Titel. Rückwärtskompatibel: Ohne `language` wird wie bisher in der aktuellen Sprache gerendert.
 - **2.2.0:** Die fest eingebaute Zuordnung der ProcessForgotPassword-Mail (`ProcessUserPage::passwordResetSubject`) entfällt. Wer sie braucht, nutzt den Hook `EmailService::detectTemplate` (s. o.).

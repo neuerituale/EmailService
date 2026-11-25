@@ -15,15 +15,17 @@ $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event
 	/** @var EmailService $service */
 	$service = $event->object;
 
-	$service->registerTemplate('welcome', 'Willkommens-E-Mail', [
-		'subject' => 'Willkommen!',
-		'preheader' => 'Dein Konto ist bereit.',
+	// A closure as sample data is called in the language shown in the preview,
+	// so __() returns the translated subject and preheader.
+	$service->registerTemplate('welcome', __('Welcome email'), fn() => [
+		'subject' => __('Welcome!'),
+		'preheader' => __('Your account is ready.'),
 		'userName' => 'Max Mustermann',
 		'loginUrl' => 'https://example.com/login/',
 	]);
 
-	$service->registerTemplate('password-reset', 'Passwort zurücksetzen', [
-		'subject' => 'Passwort zurücksetzen',
+	$service->registerTemplate('password-reset', __('Password reset'), fn() => [
+		'subject' => __('Reset your password'),
 		'resetLink' => 'https://example.com/reset/?token=abc123',
 		'code' => '123456',
 		'validMinutes' => 60,
@@ -34,16 +36,17 @@ $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event
 
 // /** @var EmailService $emailService */
 // $emailService = $modules->get('EmailService');
-// $sent = $emailService->send([
+// // Render in the recipient's language; withLanguage() also translates the subject
+// $sent = $emailService->withLanguage($user->language, fn() => $emailService->send([
 // 	'to' => $user->email,
-// 	'subject' => 'Willkommen!',
+// 	'subject' => __('Welcome!'),
 // 	'template' => 'welcome',
 // 	'data' => [
-// 		'preheader' => 'Dein Konto ist bereit.',
+// 		'preheader' => __('Your account is ready.'),
 // 		'userName' => $user->title ?: $user->name,
 // 		'loginUrl' => $pages->get('template=login')->httpUrl,
 // 	],
-// ]);
+// ]));
 // if (!$sent) $session->error('E-Mail konnte nicht gesendet werden.');
 
 /* ***** 3. Tag mails sent directly via WireMail in the log *** */

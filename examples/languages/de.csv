@@ -1,0 +1,18 @@
+en,de,description,file,hash
+"Welcome, %s!","Willkommen, %s!",,site/templates/email/welcome.php,f9fedffe79019022a8db6b273bf08f47
+"Great to have you on board. Your account is set up and you can sign in right away.","Schön, dass du dabei bist. Dein Konto ist eingerichtet und du kannst dich ab sofort anmelden.",,site/templates/email/welcome.php,45cf7f075000341cbe8e32ed9e07812e
+"Sign in now","Jetzt anmelden",,site/templates/email/welcome.php,5a85a1c0b224f91659b7bb66cc481de9
+"If you did not sign up, you can ignore this email.","Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.",,site/templates/email/welcome.php,182bcfeed47bd81bd39f4f01f25775b7
+"Welcome, %s!","Willkommen, %s!",,site/templates/email/welcome.txt.php,f9fedffe79019022a8db6b273bf08f47
+"Great to have you on board. Your account is set up and you can sign in right away:","Schön, dass du dabei bist. Dein Konto ist eingerichtet und du kannst dich ab sofort anmelden:",,site/templates/email/welcome.txt.php,fe61d46852e7b2f202075a59aadb9063
+"If you did not sign up, you can ignore this email.","Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.",,site/templates/email/welcome.txt.php,182bcfeed47bd81bd39f4f01f25775b7
+"Reset your password","Passwort zurücksetzen",,site/templates/email/password-reset.php,32fe59513f5bbdd353b4527cc6af55ce
+"You requested to reset your password. Your verification code:","Du hast angefordert, dein Passwort zurückzusetzen. Dein Bestätigungscode:",,site/templates/email/password-reset.php,b80096ba9bc573e26ada35aa28c67207
+"Set new password","Neues Passwort festlegen",,site/templates/email/password-reset.php,68af72bbafd42cd57447c51015547eca
+"The link is valid for %d minutes. If this was not you, you can ignore this email.","Der Link ist %d Minuten gültig. Falls du das nicht warst, kannst du diese E-Mail ignorieren.",,site/templates/email/password-reset.php,36541db3e2badb68218a7d7f9b4ae20c
+en,de,,site/templates/email/wrapper.php,2e6b2dc06a62e286ba24c1592e9186a7
+"Welcome email",Willkommens-E-Mail,,site/ready.php,cd398a41e889e7c964b7e15396b51dd0
+Welcome!,Willkommen!,,site/ready.php,9a843f20677a52ca79af903123147af0
+"Your account is ready.","Dein Konto ist bereit.",,site/ready.php,c82d2ada5019a13ff04d3cb9533e931d
+"Password reset","Passwort zurücksetzen",,site/ready.php,11f581ede2d21a7f2c9c8f6fdc9eb754
+"Reset your password","Passwort zurücksetzen",,site/ready.php,32fe59513f5bbdd353b4527cc6af55ce

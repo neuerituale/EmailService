@@ -1,3 +1,89 @@
 .ProcessEmailLog .MarkupPagerNav {
 	float: right;
 }
+
+/* no space below the content, the footer has its own margin: #main has the class
+   uk-margin-large-bottom (40px, 70px from @l) which is set with !important */
+body.ProcessEmailLog #main.uk-margin-large-bottom {
+	margin-bottom: 0 !important;
+}
+
+/* ***** Template preview: only corrections of the admin theme defaults *** */
+
+#email-preview a {
+	text-decoration: none;
+}
+
+#email-preview .uk-nav {
+	margin: 0 -10px;
+}
+
+#email-preview .uk-nav > li > a {
+	padding: 6px 10px;
+	border-radius: 4px;
+}
+
+#email-preview .uk-nav > li.uk-active > a {
+	background: rgba(0, 0, 0, .06);
+	font-weight: 600;
+}
+
+/* active device: same look as the active subnav pill */
+#email-preview .uk-iconnav > li > a {
+	padding: 5px;
+	border-radius: 4px;
+}
+
+#email-preview .uk-iconnav > li.uk-active > a {
+	background: #111;
+	color: #fff;
+}
+
+/* both bars (template heading, settings) have the same height, so the boxes line up */
+#email-preview .email-preview-bar {
+	min-height: 40px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(0, 0, 0, .1);
+}
+
+/* heading of the template list: same size as the buttons next to it */
+#email-preview .email-preview-label {
+	font-size: .875rem;
+	font-weight: 600;
+	line-height: 1.5;
+	color: inherit;
+}
+
+/* template count: neutral instead of the primary badge color */
+#email-preview .email-preview-count {
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	font-size: .75rem;
+	background: rgba(0, 0, 0, .08);
+	/* uk-badge sets white text with !important */
+	color: rgba(0, 0, 0, .65) !important;
+	font-weight: 600;
+}
+
+/* buttons of one group closer together */
+#email-preview .uk-subnav {
+	margin-left: -4px;
+}
+
+#email-preview .uk-subnav > * {
+	padding-left: 4px;
+}
+
+/* same slight rounding as the device buttons */
+#email-preview .uk-subnav-pill > * > a {
+	border-radius: 4px;
+}
+
+#email-preview .uk-iconnav {
+	margin-left: -4px;
+}
+
+#email-preview .uk-iconnav > * {
+	padding-left: 4px;
+}

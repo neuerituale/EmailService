@@ -5,15 +5,17 @@ namespace ProcessWire;
 /**
  * Welcome email (HTML). Copy to /site/templates/email/welcome.php.
  *
+ * Texts are translatable via Setup > Languages (file site/templates/email/welcome.php).
+ *
  * @var string $userName Name of the new user
  * @var string $loginUrl URL to the login page
  */
 
 ?>
-<h1>Willkommen, <?= $sanitizer->entities($userName) ?>!</h1>
+<h1><?= sprintf(__('Welcome, %s!'), $sanitizer->entities($userName)) ?></h1>
 
-<p>Schön, dass du dabei bist. Dein Konto ist eingerichtet und du kannst dich ab sofort anmelden.</p>
+<p><?= __('Great to have you on board. Your account is set up and you can sign in right away.') ?></p>
 
-<p><a class="button" href="<?= $sanitizer->entities($loginUrl) ?>">Jetzt anmelden</a></p>
+<p><a class="button" href="<?= $sanitizer->entities($loginUrl) ?>"><?= __('Sign in now') ?></a></p>
 
-<p class="muted">Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren.</p>
+<p class="muted"><?= __('If you did not sign up, you can ignore this email.') ?></p>

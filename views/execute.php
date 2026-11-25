@@ -54,7 +54,9 @@ namespace ProcessWire;
 		<?php if (user()->isSuperuser() && count($entries)): ?>
 			<?php
 			/** Delete respects the active filter; label reflects the scope. */
-			$deleteLabel = ($filterStatus || $filterTemplate) ? __('Delete filtered logs') : __('Delete all logs');
+			$deleteLabel = ($filterStatus || $filterTemplate)
+				? __('Delete filtered logs')
+				: __('Delete all logs');
 			$deleteConfirm = ($filterStatus || $filterTemplate)
 				? __('Delete all email log entries matching the current filter?')
 				: __('Delete all email log entries?');

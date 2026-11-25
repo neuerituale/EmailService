@@ -12,10 +12,14 @@ use Pelago\Emogrifier\CssInliner;
  *
  *   wire()->addHookAfter('EmailService::registerTemplates', function(HookEvent $event) {
  *       $service = $event->object;
- *       $service->registerTemplate('welcome', 'Willkommens-E-Mail', [
+ *       $service->registerTemplate('welcome', 'Welcome email', [
  *           'userName' => 'Max Mustermann',
  *       ]);
  *   });
+ *
+ * Multi-language: render(), renderText() and send() accept a language (Language,
+ * id or name). The user language is switched while rendering, so __() and
+ * multi-language fields in templates return values in that language.
  *
  * @method void registerTemplates()
  * @method string detectTemplate(WireMail $mail)
@@ -42,7 +46,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	/** Class required for CSS inlining (pelago/emogrifier) */
 	const inlinerClass = CssInliner::class;
 
-	/** @var array{name: string, label: string, sampleData: array}[] */
+	/** @var array{name: string, label: string, sampleData: array|\Closure}[] */
 	public array $registeredTemplates = [];
 
 	/** @var bool Whether the registerTemplates hook has been triggered */
@@ -64,7 +68,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '2.2.0',
+			'version' => '2.3.0',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -177,16 +181,51 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Register an email template with optional sample data for previews.
 	 *
+	 * Pass a closure as $sampleData to get translated sample values: it is called
+	 * in the language that is being previewed, so __() inside returns that language.
+	 *
 	 * @param string $name Template identifier
 	 * @param string $label Human-readable label
-	 * @param array $sampleData Example data used for template previews
+	 * @param array|\Closure $sampleData Example data, or a closure returning it
 	 */
-	public function registerTemplate(string $name, string $label, array $sampleData = []): void {
+	public function registerTemplate(string $name, string $label, array|\Closure $sampleData = []): void {
 		$this->registeredTemplates[$name] = [
 			'name' => $name,
 			'label' => $label,
 			'sampleData' => $sampleData,
 		];
+	}
+
+	/**
+	 * Get the sample data of a registered template in the given language.
+	 *
+	 * @param string $name Template identifier
+	 * @param Language|int|string|null $language null = current user language
+	 * @return array Empty array if the template is not registered or the data is invalid
+	 * @throws WireException
+	 */
+	public function getSampleData(string $name, Language|int|string|null $language = null): array {
+		$templates = $this->getRegisteredTemplates();
+		if (!isset($templates[$name])) return [];
+
+		$sampleData = $templates[$name]['sampleData'];
+		if (is_array($sampleData)) return $sampleData;
+
+		$language = $this->resolveLanguageOrLog($language, "getSampleData('$name')");
+		if ($language === false) return [];
+
+		try {
+			$data = $this->withLanguage($language, $sampleData);
+		} catch (\Throwable $e) {
+			$this->wire('log')->save(self::logName, "Sample data of template '$name' failed: " . $e->getMessage());
+			return [];
+		}
+
+		if (!is_array($data)) {
+			$this->wire('log')->save(self::logName, "Sample data closure of template '$name' must return an array, got " . get_debug_type($data));
+			return [];
+		}
+		return $data;
 	}
 
 	/**
@@ -203,6 +242,109 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			$this->registerTemplates();
 		}
 		return $this->registeredTemplates;
+	}
+
+	/* ***** Languages *** */
+
+	/**
+	 * Whether multi-language support (LanguageSupport) is available.
+	 *
+	 * @return bool
+	 */
+	public function hasLanguageSupport(): bool {
+		return $this->wire('languages') instanceof Languages;
+	}
+
+	/**
+	 * Get all languages, or an empty array without LanguageSupport.
+	 *
+	 * @return Language[] Indexed by language id
+	 */
+	public function getLanguages(): array {
+		if (!$this->hasLanguageSupport()) return [];
+		$items = [];
+		foreach ($this->wire('languages') as $language) {
+			/** @var Language $language */
+			$items[$language->id] = $language;
+		}
+		return $items;
+	}
+
+	/**
+	 * Resolve a language argument to a Language.
+	 *
+	 * @param Language|int|string|null $language Language, id or name
+	 * @return Language|null null if no language was given or LanguageSupport is not installed
+	 * @throws WireException if the language does not exist
+	 */
+	public function resolveLanguage(Language|int|string|null $language): ?Language {
+		if ($language === null || $language === '' || $language === 0) return null;
+		if (!$this->hasLanguageSupport()) return null;
+
+		$languages = $this->wire('languages');
+		$found = null;
+		try {
+			if ($language instanceof Language || is_int($language) || ctype_digit($language)) {
+				$id = $language instanceof Language ? $language->id : (int) $language;
+				if ($id > 0) $found = $languages->get($id);
+			} else {
+				// no lenient sanitizing: "../de" must not resolve to "de"
+				$name = $this->wire('sanitizer')->pageNameUTF8($language);
+				if ($name !== '' && $name === mb_strtolower(trim($language))) $found = $languages->get($name);
+			}
+		} catch (WireException) {
+			$found = null;
+		}
+
+		if (!$found instanceof Language || !$found->id) {
+			$label = $language instanceof Language ? "#$language->id" : (string) $language;
+			throw new WireException("Unknown language: $label");
+		}
+		return $found;
+	}
+
+	/**
+	 * Resolve a language, logging instead of throwing.
+	 *
+	 * @param Language|int|string|null $language
+	 * @param string $context Used in the log message
+	 * @return Language|null|false false if the language does not exist
+	 */
+	protected function resolveLanguageOrLog(Language|int|string|null $language, string $context): Language|null|false {
+		try {
+			return $this->resolveLanguage($language);
+		} catch (WireException $e) {
+			$this->wire('log')->save(self::logName, "$context: " . $e->getMessage());
+			return false;
+		}
+	}
+
+	/**
+	 * Run a callback with the user language temporarily set to $language.
+	 *
+	 * The previous language is restored afterwards, even if the callback throws.
+	 * Calls can be nested.
+	 *
+	 * @param Language|int|string|null $language null = keep the current language
+	 * @param callable $callback
+	 * @return mixed Return value of the callback
+	 * @throws WireException if the language does not exist
+	 */
+	public function withLanguage(Language|int|string|null $language, callable $callback): mixed {
+		$language = $this->resolveLanguage($language);
+		$user = $this->wire('user');
+		$previous = $user->get('language');
+
+		if (!$language || ($previous instanceof Language && $previous->id === $language->id)) {
+			return $callback();
+		}
+
+		$user->setQuietly('language', $language);
+		try {
+			return $callback();
+		} finally {
+			$user->setQuietly('language', $previous);
+		}
 	}
 
 	/* ***** Paths *** */
@@ -301,6 +443,35 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Get warnings about missing Composer dependencies.
+	 *
+	 * @return string[] Empty if everything is installed
+	 * @throws WireException
+	 */
+	public function getDependencyWarnings(): array {
+		$warnings = [];
+
+		$custom = trim((string) $this->autoloadFile);
+		if ($custom !== '') {
+			$file = $this->getAutoloadCandidates()[0];
+			if (!is_file($file)) {
+				$warnings[] = sprintf($this->_('EmailService: The configured Composer autoload file %s does not exist.'), $custom);
+			}
+		}
+
+		if (!$this->hasInliner()) {
+			$warnings[] = sprintf(
+				$this->_('EmailService: pelago/emogrifier is not installed, CSS is not inlined. Run %1$s in %2$s or %3$s in the project root.'),
+				'composer install --no-dev',
+				__DIR__,
+				'composer require pelago/emogrifier'
+			);
+		}
+
+		return $warnings;
+	}
+
+	/**
 	 * Get a human-readable status of the CSS inliner dependency.
 	 *
 	 * @return string
@@ -326,7 +497,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Send a templated email.
 	 *
-	 * @param array $options {to, from, fromName, subject, template, data, cc, bcc}
+	 * @param array $options {to, from, fromName, subject, template, data, cc, bcc, language}
 	 * @return bool True if the email was sent successfully
 	 * @throws WireException
 	 */
@@ -340,6 +511,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			'data' => [],
 			'cc' => '',
 			'bcc' => '',
+			'language' => null,
 		];
 		$options = array_merge($defaults, $options);
 
@@ -347,13 +519,18 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			return false;
 		}
 
-		$data = array_merge(['subject' => $options['subject']], $options['data']);
+		$language = $this->resolveLanguageOrLog($options['language'], 'send()');
+		if ($language === false) return false;
 
-		$html = $this->render($options['template'], $data);
-		if (!$html) return false;
+		$data = array_merge(['subject' => $options['subject']], (array) $options['data']);
 
-		$text = $this->renderText($options['template'], $data)
-			?: $this->htmlToText($html);
+		[$html, $text] = $this->withLanguage($language, function() use ($options, $data) {
+			$html = $this->render($options['template'], $data);
+			if ($html === '') return ['', ''];
+			$text = $this->renderText($options['template'], $data) ?: $this->htmlToText($html);
+			return [$html, $text];
+		});
+		if ($html === '') return false;
 
 		$mail = $this->wire('mail')->new();
 		$mail->to($options['to']);
@@ -362,8 +539,8 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		$mail->bodyHTML($html);
 		$mail->body($text);
 
-		if ($options['cc']) $mail->cc($options['cc']);
-		if ($options['bcc']) $mail->bcc($options['bcc']);
+		$this->addCopyRecipients($mail, 'cc', $options['cc']);
+		$this->addCopyRecipients($mail, 'bcc', $options['bcc']);
 
 		$mail->set('_emailServiceLogged', true);
 		$sent = $mail->send() > 0;
@@ -379,6 +556,33 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		);
 
 		return $sent;
+	}
+
+	/**
+	 * Add CC or BCC recipients.
+	 *
+	 * Uses $mail->cc()/bcc() if the mailer provides them (e.g. WireMailSmtp).
+	 * The core WireMail has no such methods, so the header is set instead.
+	 *
+	 * @param WireMail $mail
+	 * @param string $type 'cc' or 'bcc'
+	 * @param string|array $emails Comma-separated string or array of addresses
+	 * @throws WireException
+	 */
+	protected function addCopyRecipients(WireMail $mail, string $type, string|array $emails): void {
+		$sanitizer = $this->wire('sanitizer');
+		$list = is_array($emails) ? $emails : explode(',', $emails);
+		$list = array_values(array_unique(array_filter(array_map(
+			fn($email) => $sanitizer->email(trim((string) $email)),
+			$list
+		))));
+		if (!count($list)) return;
+
+		if (method_exists($mail, $type) || method_exists($mail, "___$type")) {
+			$mail->$type($list);
+		} else {
+			$mail->header($type === 'cc' ? 'Cc' : 'Bcc', implode(', ', $list));
+		}
 	}
 
 	/**
@@ -419,10 +623,25 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 *
 	 * @param string $template Template name (without .php extension)
 	 * @param array $data Variables passed to the template
-	 * @return string Rendered HTML
+	 * @param Language|int|string|null $language Language to render in, null = current user language
+	 * @return string Rendered HTML, or '' if the template or the language does not exist
 	 * @throws WireException
 	 */
-	public function render(string $template, array $data = []): string {
+	public function render(string $template, array $data = [], Language|int|string|null $language = null): string {
+		$language = $this->resolveLanguageOrLog($language, "render('$template')");
+		if ($language === false) return '';
+		return $this->withLanguage($language, fn() => $this->renderHtml($template, $data));
+	}
+
+	/**
+	 * Render the HTML of a template in the current language.
+	 *
+	 * @param string $template
+	 * @param array $data
+	 * @return string
+	 * @throws WireException
+	 */
+	protected function renderHtml(string $template, array $data): string {
 		$basePath = $this->getTemplatePath();
 
 		$contentFile = $this->getTemplateFile($template, '.php');
@@ -451,12 +670,56 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 *
 	 * @param string $template Template name
 	 * @param array $data Variables passed to the template
+	 * @param Language|int|string|null $language Language to render in, null = current user language
 	 * @return string Plain text or empty string if no text template exists
 	 * @throws WireException
 	 */
-	public function renderText(string $template, array $data = []): string {
+	public function renderText(string $template, array $data = [], Language|int|string|null $language = null): string {
 		$textFile = $this->getTemplateFile($template, '.txt.php');
-		return $textFile ? trim($this->renderFile($textFile, $data)) : '';
+		if (!$textFile) return '';
+		$language = $this->resolveLanguageOrLog($language, "renderText('$template')");
+		if ($language === false) return '';
+		return $this->withLanguage($language, fn() => trim($this->renderFile($textFile, $data)));
+	}
+
+	/**
+	 * Render the text part exactly as send() would: the .txt.php template if it
+	 * exists, otherwise text generated from the HTML.
+	 *
+	 * @param string $template Template name
+	 * @param array $data Variables passed to the template
+	 * @param Language|int|string|null $language Language to render in, null = current user language
+	 * @return string Plain text, or '' if the template or the language does not exist
+	 * @throws WireException
+	 */
+	public function renderTextBody(string $template, array $data = [], Language|int|string|null $language = null): string {
+		if ($this->hasTextTemplate($template)) {
+			return $this->renderText($template, $data, $language);
+		}
+		$html = $this->render($template, $data, $language);
+		return $html === '' ? '' : $this->htmlToText($html);
+	}
+
+	/**
+	 * Whether a template exists (name.php).
+	 *
+	 * @param string $template
+	 * @return bool
+	 * @throws WireException
+	 */
+	public function hasTemplate(string $template): bool {
+		return $this->getTemplateFile($template, '.php') !== '';
+	}
+
+	/**
+	 * Whether a template has its own plain-text version (name.txt.php).
+	 *
+	 * @param string $template
+	 * @return bool
+	 * @throws WireException
+	 */
+	public function hasTextTemplate(string $template): bool {
+		return $this->getTemplateFile($template, '.txt.php') !== '';
 	}
 
 	/**
@@ -512,7 +775,15 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	protected function renderFile(string $file, array $data): string {
 		$template = new TemplateFile($file);
 		$template->setArray($data);
-		return $template->render();
+
+		// TemplateFile leaves its output buffer open if the template throws
+		$level = ob_get_level();
+		try {
+			return $template->render();
+		} catch (\Throwable $e) {
+			while (ob_get_level() > $level) ob_end_clean();
+			throw $e;
+		}
 	}
 
 	/**
@@ -611,8 +882,8 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	public function ___install(): void {
 		$this->createLogTable();
 
-		if (!$this->hasInliner()) {
-			$this->warning($this->getInlinerStatus());
+		foreach ($this->getDependencyWarnings() as $warning) {
+			$this->warning($warning);
 		}
 
 		$path = $this->getTemplatePath();
@@ -698,6 +969,10 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields): InputfieldWrapper {
 		$modules = $this->wire('modules');
 		$config = $this->wire('config');
+
+		foreach ($this->getDependencyWarnings() as $warning) {
+			$this->warning($warning);
+		}
 
 		$templatePath = $this->getTemplatePath();
 
