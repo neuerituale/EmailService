@@ -1,0 +1,69 @@
+en,default,description,file,hash
+"Email Log","E-Mail Log",,site/modules/EmailService/ProcessEmailLog.module,9e07b564f108340ddde0d65b6ef59206
+"Entry not found.","Eintrag nicht gefunden.",,site/modules/EmailService/ProcessEmailLog.module,ac78884eba042183e8f47b5bb819c55f
+"Email Detail","E-Mail Details",,site/modules/EmailService/ProcessEmailLog.module,4c7b7ad16c40d0bd66c9630fe6982e5f
+"Email to %s resent successfully.","E-Mail an %s erneut gesendet.",,site/modules/EmailService/ProcessEmailLog.module,d2a4e94e10bbdd75c33e5d0844c99f49
+"Failed to resend email to %s.","Fehler beim erneuten Senden der E-Mail an %s.",,site/modules/EmailService/ProcessEmailLog.module,9bc7736acb60abc5545d5951969bb010
+"Template Preview",Vorlagenvorschau,,site/modules/EmailService/ProcessEmailLog.module,db700481fed97a741f9c39c5d55cec65
+"You do not have permission to delete email logs.","Du hast keine Berechtigung, E-Mail-Logs zu löschen.",,site/modules/EmailService/ProcessEmailLog.module,fbc54f9fac8ff34f111d34c137868a3f
+"%d email log entries deleted.","%d E-Mail-Log-Einträge gelöscht.",,site/modules/EmailService/ProcessEmailLog.module,d5cdf01f6af96a33621a825ee95ef2ba
+Sent,Gesendet,,site/modules/EmailService/views/detail.php,7f8c0283f16925caed8e632086b81b9c
+Failed,Fehler,,site/modules/EmailService/views/detail.php,d7c8c85bf79bbe1b7188497c32c3b0ca
+Date,Datum,,site/modules/EmailService/views/detail.php,44749712dbec183e983dcd78a7736c41
+Recipient,Empfänger,,site/modules/EmailService/views/detail.php,5d6103b662f41b07e10687f03aca8fdc
+From,Von,,site/modules/EmailService/views/detail.php,5da618e8e4b89c66fe86e32cdafde142
+Subject,Betreff,,site/modules/EmailService/views/detail.php,c7892ebbb139886662c6f2fc8c450710
+Template,Vorlage,,site/modules/EmailService/views/detail.php,278c491bdd8a53618c149c4ac790da34
+Status,=,,site/modules/EmailService/views/detail.php,ec53a8c4f07baed5d8825072c89799be
+"Resend this email?","Soll diese E-Mail erneut gesendet werden?",,site/modules/EmailService/views/detail.php,16fd4615e10dc003ec7002e49b5aeb67
+Resend,"Erneut senden",,site/modules/EmailService/views/detail.php,1c0b8f236cc7ad13254af9a32ea15be8
+"All statuses",Alle,,site/modules/EmailService/views/execute.php,96e3d398260724e0a83da53a2e9f20e7
+Sent,Gesendet,,site/modules/EmailService/views/execute.php,7f8c0283f16925caed8e632086b81b9c
+Failed,Fehler,,site/modules/EmailService/views/execute.php,d7c8c85bf79bbe1b7188497c32c3b0ca
+"All templates","Alle Vorlagen",,site/modules/EmailService/views/execute.php,d4e3a3afd7f0073d8b3967cf2995edc9
+Reset,Zurücksetzen,,site/modules/EmailService/views/execute.php,526d688f37a86d3c3f27d0c5016eb71d
+"Template Preview",Vorschau,,site/modules/EmailService/views/execute.php,db700481fed97a741f9c39c5d55cec65
+"No emails found.","Keine E-Mails gefunden.",,site/modules/EmailService/views/execute.php,058ff38d961d9db0a3d84a585e7ff449
+Date,Datum,,site/modules/EmailService/views/execute.php,44749712dbec183e983dcd78a7736c41
+Recipient,Empfänger,,site/modules/EmailService/views/execute.php,5d6103b662f41b07e10687f03aca8fdc
+Subject,Betreff,,site/modules/EmailService/views/execute.php,c7892ebbb139886662c6f2fc8c450710
+Template,Vorlage,,site/modules/EmailService/views/execute.php,278c491bdd8a53618c149c4ac790da34
+Status,=,,site/modules/EmailService/views/execute.php,ec53a8c4f07baed5d8825072c89799be
+"%d emails","%d E-Mails",,site/modules/EmailService/views/execute.php,6cdf5c080fe24265d8488b94d1f6e143
+"Delete filtered logs","Gefilterte Logs löschen",,site/modules/EmailService/views/execute.php,232784e36335405ee844ae5cbc289d7c
+"Delete all logs","Alle Logs löschen",,site/modules/EmailService/views/execute.php,a7dbf1017e2f8c021788a4e40c24fbc0
+"Delete all email log entries matching the current filter?","Alle E-Mail-Log-Einträge löschen, die dem aktuellen Filter entsprechen?",,site/modules/EmailService/views/execute.php,33b0ae35aba44f37d0854a9c0d6f2e6f
+"Delete all email log entries?","Alle E-Mail-Log-Einträge löschen?",,site/modules/EmailService/views/execute.php,fd500782dccd8ba4d4d8b0f84da90d33
+"No templates registered. Use the EmailService::registerTemplates hook to register templates with sample data.","Es sind keine Vorlagen registriert. Verwende den Hook `EmailService::registerTemplates`, um Vorlagen mit Beispieldaten zu registrieren.",,site/modules/EmailService/views/preview.php,6ca8af709670741836dd22f92069c182
+Phone,,,site/modules/EmailService/views/preview.php,bcc254b55c4a1babdf1dcb82c207506b
+Tablet,,,site/modules/EmailService/views/preview.php,36384a9ea3ec791e6bd4ab6b36f2ff2a
+Desktop,,,site/modules/EmailService/views/preview.php,2310408a63388fe57e3a4177168a8798
+HTML,,,site/modules/EmailService/views/preview.php,4c4ad5fca2e7a3f74dbb1ced00381aa4
+Text,,,site/modules/EmailService/views/preview.php,9dffbf69ffba8bc38bc4e01abf4b1675
+Templates,"Alle Vorlagen",,site/modules/EmailService/views/preview.php,7df96b18c230f90ada0a9e2307226338
+"Could not render template. Check that the template file exists and sample data is valid.","Die Vorlage konnte nicht gerendert werden. Bitte überprüfe, ob die Vorlagendatei vorhanden ist und die Beispieldaten gültig sind.",,site/modules/EmailService/views/preview.php,fbed23a602e5a856550d1054ea0fc62e
+"Select a template to preview.","Wähle eine Vorlage aus, um eine Vorschau anzuzeigen.",,site/modules/EmailService/views/preview.php,740d65fa901cde1366b7622283702148
+"Template path",Template-Pfad,,site/modules/EmailService/EmailService.module,340d202a9ca757725f373ab8a9e8fdc0
+"Wrapper file",Wrapper-Datei,,site/modules/EmailService/EmailService.module,fe39f07b6b55f0d45a48a56be7bc5216
+"File name of the HTML wrapper","Dateiname des HTML-Wrappers",,site/modules/EmailService/EmailService.module,1e2e9cb5a1a5fcf6e70bf43c4df70baf
+"CSS file",CSS-Datei,,site/modules/EmailService/EmailService.module,1547ffc579d657d13fd5fedf12cbfae5
+"File name for CSS inlining","Dateiname für CSS-Inlining",,site/modules/EmailService/EmailService.module,79c3e85b35c34a1b05c65a5ba8e7dda0
+"Default sender (email)","Standard-Absender (E-Mail)",,site/modules/EmailService/EmailService.module,56c4f0fac1ee7d8a2afe8daba941da33
+"Falls back to $config->adminEmail if empty","Falls leer, wird $config->adminEmail verwendet",,site/modules/EmailService/EmailService.module,09a01dd05c16d89fc659b724a72f1c18
+"Sender name",Absender-Name,,site/modules/EmailService/EmailService.module,90ed58883831551ef960da4f7cde1240
+"Log retention (days)","Log-Aufbewahrung (Tage)",,site/modules/EmailService/EmailService.module,22319b0ab6a15f64692dfad311d14159
+"Email log entries older than this number of days are deleted daily. 0 = unlimited.","E-Mail-Log-Einträge älter als diese Anzahl Tage werden täglich gelöscht. 0 = unbegrenzt.",,site/modules/EmailService/EmailService.module,4b56ff9a7264beaa07a29be209890101
+"pelago/emogrifier not found. CSS will be embedded in a style block instead of being inlined. Searched: %s","pelago/emogrifier nicht gefunden. CSS wird als Style-Block eingebettet statt inline gesetzt. Durchsucht: %s",,site/modules/EmailService/EmailService.module,f01d304433c2bc88d54a17d6ae45e71f
+"pelago/emogrifier is available (already loaded).","pelago/emogrifier ist verfügbar (bereits geladen).",,site/modules/EmailService/EmailService.module,65d60050573944faecf59158a7c50d55
+"pelago/emogrifier is available (loaded from %s).","pelago/emogrifier ist verfügbar (geladen aus %s).",,site/modules/EmailService/EmailService.module,ac94ca79569ec4b2a8a9e9f5aaa5e95c
+"Email template directory %s does not exist yet. Examples: %s","Das E-Mail-Template-Verzeichnis %s existiert noch nicht. Beispiele: %s",,site/modules/EmailService/EmailService.module,04b5c99b9b4b74b52e092f932d55ef2b
+"Directory of the email templates, relative to %s","Verzeichnis der E-Mail-Templates, relativ zu %s",,site/modules/EmailService/EmailService.module,1bbc335110dfa9c96993b3d2e87d4f01
+"Resolved: %s","Aufgelöst: %s",,site/modules/EmailService/EmailService.module,9b8a37d0c431aafc53d98aefeca27abf
+"Directory %s does not exist.","Verzeichnis %s existiert nicht.",,site/modules/EmailService/EmailService.module,aac68a9be719a2066ef0e4ec57bf263b
+"Leave empty to send templates without wrapper.","Leer lassen, um Templates ohne Wrapper zu versenden.",,site/modules/EmailService/EmailService.module,8461151b6365680f96922b7d5835000d
+"Leave empty to disable CSS inlining.","Leer lassen, um CSS-Inlining zu deaktivieren.",,site/modules/EmailService/EmailService.module,bdc87fd86dafaf3b08a8b23c1099197b
+"Runs via ProcessCronJobs.","Läuft über ProcessCronJobs.",,site/modules/EmailService/EmailService.module,bbe4025398640330cb9a5c2d57c6ae02
+"Runs via LazyCron.","Läuft über LazyCron.",,site/modules/EmailService/EmailService.module,cf1102a0bc9cbe551ba977db0a060b6e
+"Neither ProcessCronJobs nor LazyCron is installed, old entries are not deleted automatically.","Weder ProcessCronJobs noch LazyCron ist installiert, alte Einträge werden nicht automatisch gelöscht.",,site/modules/EmailService/EmailService.module,db3670d3297f3a5e77cadb9ca4789491
+"Composer autoload file",Composer-Autoload-Datei,,site/modules/EmailService/EmailService.module,3f66c4e47ded732274a6142cd27ef342
+"Optional path to a vendor/autoload.php that provides pelago/emogrifier (absolute or relative to the root). Leave empty for automatic lookup.","Optionaler Pfad zu einer vendor/autoload.php mit pelago/emogrifier (absolut oder relativ zum Root). Leer lassen für automatische Suche.",,site/modules/EmailService/EmailService.module,31633240fa88874a5833eb4c8d0b3fb4

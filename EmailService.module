@@ -1,0 +1,786 @@
+<?php
+namespace ProcessWire;
+
+use Pelago\Emogrifier\CssInliner;
+
+/**
+ * Email Service – Templated emails with CSS inlining and logging.
+ *
+ * Installing this module also installs ProcessEmailLog (admin UI for the log).
+ *
+ * Other modules register email templates via hook:
+ *
+ *   wire()->addHookAfter('EmailService::registerTemplates', function(HookEvent $event) {
+ *       $service = $event->object;
+ *       $service->registerTemplate('welcome', 'Willkommens-E-Mail', [
+ *           'userName' => 'Max Mustermann',
+ *       ]);
+ *   });
+ *
+ * @method void registerTemplates()
+ * @method string detectTemplate(WireMail $mail)
+ *
+ * @property string $templatePath Directory of the email templates, relative to /site/templates/
+ * @property string $wrapperFile
+ * @property string $cssFile
+ * @property string $defaultFrom
+ * @property string $defaultFromName
+ * @property int $retainDays
+ * @property string $autoloadFile Optional path to a Composer autoload.php
+ */
+class EmailService extends WireData implements Module, ConfigurableModule {
+
+	/** Name of the ProcessWire log file (site/assets/logs/email-service.txt) */
+	const logName = 'email-service';
+
+	/** Name of the database table holding the email log */
+	const logTable = 'email_log';
+
+	/** Name of the cron job that prunes old log entries */
+	const cleanupJob = 'EmailServiceCleanup';
+
+	/** Class required for CSS inlining (pelago/emogrifier) */
+	const inlinerClass = CssInliner::class;
+
+	/** @var array{name: string, label: string, sampleData: array}[] */
+	public array $registeredTemplates = [];
+
+	/** @var bool Whether the registerTemplates hook has been triggered */
+	protected bool $templatesRegistered = false;
+
+	/** @var string|false|null Autoload file that provided the inliner, '' if already loaded, false if not found, null if not checked yet */
+	protected string|false|null $inlinerSource = null;
+
+	/** @var bool Whether the missing-inliner warning has been logged in this request */
+	protected bool $inlinerWarningLogged = false;
+
+
+	/**
+	 * Return module info array.
+	 *
+	 * @return array
+	 */
+	public static function getModuleInfo() {
+		return [
+			'title' => 'Email Service',
+			'summary' => 'Templated emails with CSS inlining and logging',
+			'version' => '2.2.0',
+			'autoload' => true,
+			'singular' => true,
+			'icon' => 'envelope',
+			'requires' => ['PHP>=8.0', 'ProcessWire>=3.0.0'],
+			'installs' => ['ProcessEmailLog'],
+		];
+	}
+
+	/**
+	 * Return default configuration values.
+	 *
+	 * @return array
+	 */
+	public function getDefaults(): array {
+		return [
+			'templatePath' => 'email/',
+			'wrapperFile' => 'wrapper.php',
+			'cssFile' => 'wrapper.css',
+			'defaultFrom' => '',
+			'defaultFromName' => '',
+			'retainDays' => 90,
+			'autoloadFile' => '',
+		];
+	}
+
+	/**
+	 * Set defaults and register the cron job for log cleanup.
+	 */
+	public function __construct() {
+		parent::__construct();
+
+		foreach ($this->getDefaults() as $key => $value) {
+			$this->set($key, $value);
+		}
+
+		// Cleanup via ProcessCronJobs (if installed); see init() for the LazyCron fallback
+		wire()->addHookBefore('ProcessCronJobs::register', function(HookEvent $event) {
+			/** @var ProcessCronJobs $cron */
+			$cron = $event->object;
+			$cron->add(
+				self::cleanupJob,
+				[$this, 'pruneLogEntries'],
+				['lazyCron' => 'everyDay']
+			);
+		});
+	}
+
+	/**
+	 * Initialize the module.
+	 */
+	public function init(): void {
+		$this->addHookAfter('WireMail::send', $this, 'hookWireMailSend');
+
+		$modules = $this->wire('modules');
+		if (!$modules->isInstalled('ProcessCronJobs') && $modules->isInstalled('LazyCron')) {
+			$this->addHookAfter('LazyCron::everyDay', function() {
+				$this->pruneLogEntries();
+			});
+		}
+	}
+
+	/**
+	 * Log emails sent directly via WireMail (not through EmailService::send).
+	 */
+	protected function hookWireMailSend(HookEvent $event): void {
+		/** @var WireMail $mail */
+		$mail = $event->object;
+		if ($mail->get('_emailServiceLogged')) return;
+
+		$sent = $event->return > 0;
+		$to = implode(', ', $mail->to);
+		$from = is_array($mail->from)
+			? implode(', ', $mail->from)
+			: (string) $mail->from
+		;
+
+		$this->writeLogEntry(
+			$to,
+			$from,
+			(string) $mail->subject,
+			$this->detectTemplate($mail),
+			(string) $mail->bodyHTML,
+			(string) $mail->body,
+			$sent
+		);
+	}
+
+	/**
+	 * Hookable: determine the template name for a log entry of a mail that was
+	 * sent directly via WireMail (e.g. by ProcessForgotPassword).
+	 *
+	 * Returns an empty string by default. See README for an example.
+	 *
+	 * @param WireMail $mail
+	 * @return string
+	 */
+	public function ___detectTemplate(WireMail $mail): string {
+		return '';
+	}
+
+	/* ***** Template Registry *** */
+
+	/**
+	 * Hookable: other modules register their email templates here.
+	 */
+	public function ___registerTemplates(): void {
+		// intentionally empty – templates are registered by external modules
+	}
+
+	/**
+	 * Register an email template with optional sample data for previews.
+	 *
+	 * @param string $name Template identifier
+	 * @param string $label Human-readable label
+	 * @param array $sampleData Example data used for template previews
+	 */
+	public function registerTemplate(string $name, string $label, array $sampleData = []): void {
+		$this->registeredTemplates[$name] = [
+			'name' => $name,
+			'label' => $label,
+			'sampleData' => $sampleData,
+		];
+	}
+
+	/**
+	 * Get all registered email templates.
+	 *
+	 * The registerTemplates hook is triggered on first call, so hooks added in
+	 * /site/init.php, /site/ready.php or in any module's init()/ready() are included.
+	 *
+	 * @return array{name: string, label: string, sampleData: array}[]
+	 */
+	public function getRegisteredTemplates(): array {
+		if (!$this->templatesRegistered) {
+			$this->templatesRegistered = true;
+			$this->registerTemplates();
+		}
+		return $this->registeredTemplates;
+	}
+
+	/* ***** Paths *** */
+
+	/**
+	 * Get the absolute path to the email template directory.
+	 *
+	 * The configured path is relative to /site/templates/. For backwards
+	 * compatibility a root-relative value like "/site/templates/email/" is accepted.
+	 *
+	 * @return string Absolute path with trailing slash
+	 * @throws WireException
+	 */
+	public function getTemplatePath(): string {
+		return $this->wire('config')->paths->templates . $this->normalizeTemplatePath((string) $this->templatePath);
+	}
+
+	/**
+	 * Normalize a configured template path to a path relative to /site/templates/.
+	 *
+	 * @param string $path
+	 * @return string Relative path with trailing slash, or '' for the templates directory itself
+	 */
+	protected function normalizeTemplatePath(string $path): string {
+		$templatesUrl = $this->wire('config')->urls->templates; // e.g. /site/templates/
+		$rootUrl = $this->wire('config')->urls->root;
+		$path = str_replace('\\', '/', trim($path));
+
+		foreach ([$templatesUrl, '/' . ltrim(substr($templatesUrl, strlen($rootUrl)), '/')] as $prefix) {
+			if ($prefix !== '/' && str_starts_with($path, $prefix)) {
+				$path = substr($path, strlen($prefix));
+				break;
+			}
+		}
+
+		// no traversal out of the templates directory
+		$parts = array_filter(explode('/', $path), fn($part) => $part !== '' && $part !== '.' && $part !== '..');
+		return count($parts) ? implode('/', $parts) . '/' : '';
+	}
+
+	/* ***** Dependencies *** */
+
+	/**
+	 * Get possible locations of a Composer autoload.php, in lookup order.
+	 *
+	 * @return string[]
+	 * @throws WireException
+	 */
+	public function getAutoloadCandidates(): array {
+		$config = $this->wire('config');
+		$candidates = [];
+
+		$custom = trim((string) $this->autoloadFile);
+		if ($custom !== '') {
+			$candidates[] = str_starts_with($custom, '/') && is_file($custom)
+				? $custom
+				: $config->paths->root . ltrim($custom, '/');
+		}
+
+		$candidates[] = __DIR__ . '/vendor/autoload.php';             // composer install inside the module
+		$candidates[] = $config->paths->site . 'vendor/autoload.php';  // /site/vendor/
+		$candidates[] = $config->paths->root . 'vendor/autoload.php';  // project root
+
+		// docroot is a subfolder of the Composer project (e.g. project/public/)
+		$parent = dirname($config->paths->root);
+		if (is_file("$parent/composer.json")) $candidates[] = "$parent/vendor/autoload.php";
+
+		return array_values(array_unique($candidates));
+	}
+
+	/**
+	 * Make sure the CSS inliner is available, loading a Composer autoloader if needed.
+	 *
+	 * @return bool
+	 * @throws WireException
+	 */
+	public function hasInliner(): bool {
+		if ($this->inlinerSource === null) {
+			$this->inlinerSource = false;
+
+			if (class_exists(self::inlinerClass)) {
+				$this->inlinerSource = '';
+			} else {
+				foreach ($this->getAutoloadCandidates() as $file) {
+					if (!is_file($file)) continue;
+					require_once $file;
+					if (class_exists(self::inlinerClass)) {
+						$this->inlinerSource = $file;
+						break;
+					}
+				}
+			}
+		}
+
+		return $this->inlinerSource !== false;
+	}
+
+	/**
+	 * Get a human-readable status of the CSS inliner dependency.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function getInlinerStatus(): string {
+		if (!$this->hasInliner()) {
+			return sprintf(
+				$this->_('pelago/emogrifier not found. CSS will be embedded in a style block instead of being inlined. Searched: %s'),
+				implode(', ', $this->getAutoloadCandidates())
+			);
+		}
+
+		if ($this->inlinerSource === '') {
+			return $this->_('pelago/emogrifier is available (already loaded).');
+		}
+
+		return sprintf($this->_('pelago/emogrifier is available (loaded from %s).'), $this->inlinerSource);
+	}
+
+	/* ***** Sending *** */
+
+	/**
+	 * Send a templated email.
+	 *
+	 * @param array $options {to, from, fromName, subject, template, data, cc, bcc}
+	 * @return bool True if the email was sent successfully
+	 * @throws WireException
+	 */
+	public function send(array $options): bool {
+		$defaults = [
+			'to' => '',
+			'from' => $this->defaultFrom ?: ($this->wire('config')->adminEmail ?? ''),
+			'fromName' => $this->defaultFromName ?: '',
+			'subject' => '',
+			'template' => '',
+			'data' => [],
+			'cc' => '',
+			'bcc' => '',
+		];
+		$options = array_merge($defaults, $options);
+
+		if (empty($options['to']) || empty($options['template'])) {
+			return false;
+		}
+
+		$data = array_merge(['subject' => $options['subject']], $options['data']);
+
+		$html = $this->render($options['template'], $data);
+		if (!$html) return false;
+
+		$text = $this->renderText($options['template'], $data)
+			?: $this->htmlToText($html);
+
+		$mail = $this->wire('mail')->new();
+		$mail->to($options['to']);
+		$mail->from($options['from'], $options['fromName']);
+		$mail->subject($options['subject']);
+		$mail->bodyHTML($html);
+		$mail->body($text);
+
+		if ($options['cc']) $mail->cc($options['cc']);
+		if ($options['bcc']) $mail->bcc($options['bcc']);
+
+		$mail->set('_emailServiceLogged', true);
+		$sent = $mail->send() > 0;
+
+		$this->writeLogEntry(
+			is_array($options['to']) ? implode(', ', $options['to']) : (string) $options['to'],
+			(string) $options['from'],
+			(string) $options['subject'],
+			(string) $options['template'],
+			$html,
+			$text,
+			$sent
+		);
+
+		return $sent;
+	}
+
+	/**
+	 * Resend an email directly from a stored log entry (used by ProcessEmailLog).
+	 *
+	 * @param array $entry Row from the email log table
+	 * @return bool
+	 * @throws WireException
+	 */
+	public function resend(array $entry): bool {
+		$mail = $this->wire('mail')->new();
+		$mail->to($entry['to_email']);
+		$mail->from($entry['from_email'], $this->defaultFromName ?: '');
+		$mail->subject($entry['subject']);
+		$mail->bodyHTML($entry['body_html']);
+		$mail->body($entry['body_text']);
+
+		$mail->set('_emailServiceLogged', true);
+		$sent = $mail->send() > 0;
+
+		$this->writeLogEntry(
+			$entry['to_email'],
+			$entry['from_email'],
+			$entry['subject'],
+			$entry['template'],
+			$entry['body_html'],
+			$entry['body_text'],
+			$sent
+		);
+
+		return $sent;
+	}
+
+	/* ***** Rendering *** */
+
+	/**
+	 * Render an email template with wrapper and CSS inlining.
+	 *
+	 * @param string $template Template name (without .php extension)
+	 * @param array $data Variables passed to the template
+	 * @return string Rendered HTML
+	 * @throws WireException
+	 */
+	public function render(string $template, array $data = []): string {
+		$basePath = $this->getTemplatePath();
+
+		$contentFile = $this->getTemplateFile($template, '.php');
+		if (!$contentFile) {
+			$this->wire('log')->save(self::logName, "Template not found: {$basePath}{$template}.php");
+			return '';
+		}
+		$content = $this->renderFile($contentFile, $data);
+
+		$wrapperFile = $basePath . $this->wrapperFile;
+		if (!$this->wrapperFile || !is_file($wrapperFile)) {
+			return $content;
+		}
+		$html = $this->renderFile($wrapperFile, array_merge($data, ['content' => $content]));
+
+		$cssFile = $basePath . $this->cssFile;
+		if ($this->cssFile && is_file($cssFile)) {
+			$html = $this->applyCss($html, (string) file_get_contents($cssFile));
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Render the plain-text version of a template if available.
+	 *
+	 * @param string $template Template name
+	 * @param array $data Variables passed to the template
+	 * @return string Plain text or empty string if no text template exists
+	 * @throws WireException
+	 */
+	public function renderText(string $template, array $data = []): string {
+		$textFile = $this->getTemplateFile($template, '.txt.php');
+		return $textFile ? trim($this->renderFile($textFile, $data)) : '';
+	}
+
+	/**
+	 * Get the absolute file of a template, or '' if it does not exist.
+	 *
+	 * @param string $template Template name, may contain subdirectories (e.g. "shop/order")
+	 * @param string $suffix
+	 * @return string
+	 * @throws WireException
+	 */
+	protected function getTemplateFile(string $template, string $suffix): string {
+		$name = $this->normalizeTemplatePath($template);
+		if ($name === '') return '';
+		$file = $this->getTemplatePath() . rtrim($name, '/') . $suffix;
+		return is_file($file) ? $file : '';
+	}
+
+	/**
+	 * Inline CSS into the HTML, or embed it as <style> block if the inliner is missing.
+	 *
+	 * @param string $html
+	 * @param string $css
+	 * @return string
+	 * @throws WireException
+	 */
+	protected function applyCss(string $html, string $css): string {
+		if ($css === '') return $html;
+
+		if ($this->hasInliner()) {
+			$inliner = self::inlinerClass;
+			return $inliner::fromHtml($html)->inlineCss($css)->render();
+		}
+
+		if (!$this->inlinerWarningLogged) {
+			$this->inlinerWarningLogged = true;
+			$this->wire('log')->save(self::logName, 'pelago/emogrifier not found, CSS embedded as <style> block.');
+		}
+
+		$style = "<style>\n" . $css . "\n</style>";
+		if (stripos($html, '</head>') !== false) {
+			return preg_replace('~</head>~i', $style . "\n</head>", $html, 1);
+		}
+		return $style . "\n" . $html;
+	}
+
+	/**
+	 * Render a single template file with the given data.
+	 *
+	 * @param string $file Absolute file path
+	 * @param array $data Variables passed to the template
+	 * @return string Rendered output
+	 */
+	protected function renderFile(string $file, array $data): string {
+		$template = new TemplateFile($file);
+		$template->setArray($data);
+		return $template->render();
+	}
+
+	/**
+	 * Convert HTML to plain text by stripping tags and normalizing whitespace.
+	 *
+	 * @param string $html
+	 * @return string
+	 */
+	protected function htmlToText(string $html): string {
+		$text = preg_replace('~<(head|style|script)\b.*?</\1>~is', '', $html);
+		$text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+		$text = preg_replace('/<\/p>/i', "\n\n", $text);
+		$text = preg_replace('/<\/tr>/i', "\n", $text);
+		$text = preg_replace('/<\/h[1-6]>/i', "\n\n", $text);
+		$text = strip_tags($text);
+		$text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+		$text = preg_replace('/[ \t]+/', ' ', $text);
+		$text = preg_replace('/ *\n */', "\n", $text);
+		$text = preg_replace('/\n{3,}/', "\n\n", $text);
+		return trim($text);
+	}
+
+	/* ***** Logging *** */
+
+	/**
+	 * Write an entry into the email log table.
+	 *
+	 * @param string $to
+	 * @param string $from
+	 * @param string $subject
+	 * @param string $template
+	 * @param string $html
+	 * @param string $text
+	 * @param bool $sent
+	 * @throws WireException
+	 */
+	protected function writeLogEntry(
+		string $to,
+		string $from,
+		string $subject,
+		string $template,
+		string $html,
+		string $text,
+		bool $sent
+	): void {
+		try {
+			$db = $this->wire('database');
+			$stmt = $db->prepare(
+				"INSERT INTO `" . self::logTable . "`
+				 (`to_email`, `from_email`, `subject`, `template`, `body_html`, `body_text`, `status`, `created`)
+				 VALUES (:to_email, :from_email, :subject, :template, :body_html, :body_text, :status, :created)"
+			);
+			$stmt->execute([
+				':to_email' => mb_substr($to, 0, 255),
+				':from_email' => mb_substr($from, 0, 255),
+				':subject' => mb_substr($subject, 0, 255),
+				':template' => mb_substr($template, 0, 128),
+				':body_html' => $html,
+				':body_text' => $text,
+				':status' => $sent ? 'sent' : 'failed',
+				':created' => time(),
+			]);
+		} catch (\Exception $e) {
+			$this->wire('log')->save(self::logName, "writeLogEntry() failed: " . $e->getMessage());
+		}
+	}
+
+	/**
+	 * Delete email log entries older than the configured retention period.
+	 */
+	public function pruneLogEntries(): void {
+		$retainDays = (int) $this->retainDays;
+		if ($retainDays <= 0) return;
+
+		try {
+			$db = $this->wire('database');
+			$threshold = time() - ($retainDays * 86400);
+			$stmt = $db->prepare("DELETE FROM `" . self::logTable . "` WHERE `created` < :threshold");
+			$stmt->execute([':threshold' => $threshold]);
+			$deleted = $stmt->rowCount();
+			if ($deleted > 0) {
+				$this->wire('log')->save(self::logName,
+					"Pruned {$deleted} email log entries older than {$retainDays} days.");
+			}
+		} catch (\Exception $e) {
+			$this->wire('log')->save(self::logName, "pruneLogEntries() failed: " . $e->getMessage());
+		}
+	}
+
+	/* ***** Install / Upgrade / Uninstall *** */
+
+	/**
+	 * Create the email log table on module install.
+	 * ProcessEmailLog is installed afterwards via the 'installs' module info.
+	 */
+	public function ___install(): void {
+		$this->createLogTable();
+
+		if (!$this->hasInliner()) {
+			$this->warning($this->getInlinerStatus());
+		}
+
+		$path = $this->getTemplatePath();
+		if (!is_dir($path)) {
+			$this->warning(sprintf(
+				$this->_('Email template directory %s does not exist yet. Examples: %s'),
+				$path,
+				__DIR__ . '/examples/email/'
+			));
+		}
+	}
+
+	/**
+	 * Bring existing installations up to date.
+	 *
+	 * @param int|string $fromVersion
+	 * @param int|string $toVersion
+	 * @throws WireException
+	 */
+	public function ___upgrade($fromVersion, $toVersion): void {
+		$this->createLogTable();
+
+		// < 2.1.0: ProcessEmailLog had to be installed manually
+		$modules = $this->wire('modules');
+		if (!$modules->isInstalled('ProcessEmailLog') && $modules->isInstallable('ProcessEmailLog', true)) {
+			$modules->install('ProcessEmailLog');
+			$this->message('Installed ProcessEmailLog');
+		}
+
+		// < 2.2.0: templatePath was relative to the root (e.g. "/site/templates/email/")
+		$data = $modules->getConfig($this);
+		if (isset($data['templatePath'])) {
+			$normalized = $this->normalizeTemplatePath((string) $data['templatePath']);
+			if ($normalized !== $data['templatePath']) {
+				$data['templatePath'] = $normalized;
+				$modules->saveConfig($this, $data);
+				$this->message("EmailService: templatePath migrated to '$normalized'");
+			}
+		}
+	}
+
+	/**
+	 * Drop the email log table on module uninstall.
+	 * ProcessEmailLog is uninstalled automatically since it requires this module.
+	 */
+	public function ___uninstall(): void {
+		$this->wire('database')->exec("DROP TABLE IF EXISTS `" . self::logTable . "`;");
+	}
+
+	/**
+	 * Create the email log table if it does not exist yet.
+	 */
+	protected function createLogTable(): void {
+		$this->wire('database')->exec("
+			CREATE TABLE IF NOT EXISTS `" . self::logTable . "` (
+				`id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+				`to_email`   VARCHAR(255) NOT NULL DEFAULT '',
+				`from_email` VARCHAR(255) NOT NULL DEFAULT '',
+				`subject`    VARCHAR(255) NOT NULL DEFAULT '',
+				`template`   VARCHAR(128) NOT NULL DEFAULT '',
+				`body_html`  MEDIUMTEXT   NULL,
+				`body_text`  MEDIUMTEXT   NULL,
+				`status`     ENUM('sent','failed') NOT NULL DEFAULT 'sent',
+				`created`    INT UNSIGNED NOT NULL,
+				PRIMARY KEY (`id`),
+				KEY `idx_status` (`status`),
+				KEY `idx_template` (`template`),
+				KEY `idx_created` (`created`)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+		");
+	}
+
+	/* ***** Module Configuration *** */
+
+	/**
+	 * Build the module configuration form.
+	 *
+	 * @param InputfieldWrapper $inputfields
+	 * @return InputfieldWrapper
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields): InputfieldWrapper {
+		$modules = $this->wire('modules');
+		$config = $this->wire('config');
+
+		$templatePath = $this->getTemplatePath();
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->name = 'templatePath';
+		$f->label = $this->_('Template path');
+		$f->description = sprintf(
+			$this->_('Directory of the email templates, relative to %s'),
+			$config->urls->templates
+		);
+		$f->notes = is_dir($templatePath)
+			? sprintf($this->_('Resolved: %s'), $templatePath)
+			: sprintf($this->_('Directory %s does not exist.'), $templatePath);
+		$f->value = $this->normalizeTemplatePath((string) $this->templatePath);
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->name = 'wrapperFile';
+		$f->label = $this->_('Wrapper file');
+		$f->description = $this->_('File name of the HTML wrapper');
+		$f->notes = $this->_('Leave empty to send templates without wrapper.');
+		$f->value = $this->wrapperFile;
+		$f->columnWidth = 25;
+		$inputfields->add($f);
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->name = 'cssFile';
+		$f->label = $this->_('CSS file');
+		$f->description = $this->_('File name for CSS inlining');
+		$f->notes = $this->_('Leave empty to disable CSS inlining.');
+		$f->value = $this->cssFile;
+		$f->columnWidth = 25;
+		$inputfields->add($f);
+
+		/** @var InputfieldEmail $f */
+		$f = $modules->get('InputfieldEmail');
+		$f->name = 'defaultFrom';
+		$f->label = $this->_('Default sender (email)');
+		$f->description = $this->_('Falls back to $config->adminEmail if empty');
+		$f->value = $this->defaultFrom;
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->name = 'defaultFromName';
+		$f->label = $this->_('Sender name');
+		$f->value = $this->defaultFromName;
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->name = 'retainDays';
+		$f->label = $this->_('Log retention (days)');
+		$f->description = $this->_('Email log entries older than this number of days are deleted daily. 0 = unlimited.');
+		$f->notes = $modules->isInstalled('ProcessCronJobs')
+			? $this->_('Runs via ProcessCronJobs.')
+			: ($modules->isInstalled('LazyCron')
+				? $this->_('Runs via LazyCron.')
+				: $this->_('Neither ProcessCronJobs nor LazyCron is installed, old entries are not deleted automatically.'));
+		$f->value = (int) $this->retainDays;
+		$f->min = 0;
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->name = 'autoloadFile';
+		$f->label = $this->_('Composer autoload file');
+		$f->description = $this->_('Optional path to a vendor/autoload.php that provides pelago/emogrifier (absolute or relative to the root). Leave empty for automatic lookup.');
+		$f->notes = $this->getInlinerStatus();
+		$f->value = $this->autoloadFile;
+		$f->collapsed = $this->hasInliner() && !$this->autoloadFile
+			? Inputfield::collapsedYes
+			: Inputfield::collapsedNo;
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+}

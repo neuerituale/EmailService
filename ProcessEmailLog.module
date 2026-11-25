@@ -1,0 +1,429 @@
+<?php
+
+namespace ProcessWire;
+
+class ProcessEmailLog extends Process implements Module
+{
+	const perPage = 20;
+
+	/**
+	 * Return module info array.
+	 *
+	 * @return array
+	 */
+	public static function getModuleInfo(): array
+	{
+		return [
+			'title' => 'Email Log',
+			'version' => '1.0.0',
+			'summary' => 'Browse sent emails, preview templates and resend.',
+			'icon' => 'envelope',
+			'singular' => true,
+			'autoload' => false,
+			'permission' => 'email-log-view',
+			'permissions' => [
+				'email-log-view' => 'View email log',
+			],
+			'page' => [
+				'name' => 'email-log',
+				'parent' => 'setup',
+				'title' => 'Email Log',
+			],
+			'requires' => ['EmailService'],
+		];
+	}
+
+	/* ***** Overview *** */
+
+	/**
+	 * Display the paginated email log listing.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___execute(): string
+	{
+		$this->headline(__('Email Log'));
+		$this->browserTitle(__('Email Log'));
+
+		$input = $this->wire('input');
+		$sanitizer = $this->wire('sanitizer');
+
+		$filterStatus = $sanitizer->text($input->get('status') ?? '');
+		if (!in_array($filterStatus, ['sent', 'failed'])) $filterStatus = '';
+
+		$filterTemplate = $sanitizer->text($input->get('template') ?? '');
+		$currentPg = max(1, (int) $input->pageNum());
+
+		$total = $this->queryCount($filterStatus, $filterTemplate);
+		$entries = $this->queryEntries($filterStatus, $filterTemplate, $currentPg);
+
+		$pager = new PaginatedArray();
+		$pager->setTotal($total);
+		$pager->setLimit(self::perPage);
+		$pager->setStart(($currentPg - 1) * self::perPage);
+
+		/** @var EmailService $emailService */
+		$emailService = $this->wire('modules')->get('EmailService');
+		$templates = $emailService->getRegisteredTemplates();
+
+		$usedTemplates = $this->queryDistinctTemplates();
+
+		$tpl = new TemplateFile(__DIR__ . '/views/execute.php');
+		$tpl->setArray([
+			'entries' => $entries,
+			'filterStatus' => $filterStatus,
+			'filterTemplate' => $filterTemplate,
+			'templates' => $templates,
+			'usedTemplates' => $usedTemplates,
+			'pager' => $pager,
+			'total' => $total,
+			'adminPage' => $this->wire('page'),
+		]);
+
+		return $tpl->render();
+	}
+
+	/* ***** Detail *** */
+
+	/**
+	 * Display a single email log entry.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___executeDetail(): string
+	{
+		$id = (int) $this->wire('input')->get('id');
+		$entry = $this->getEntry($id);
+
+		if (!$entry) {
+			$this->error(__('Entry not found.'));
+			$this->wire('session')->redirect($this->wire('page')->url);
+			return '';
+		}
+
+		$this->headline(__('Email Detail'));
+		$this->browserTitle(__('Email Detail'));
+		$this->wire('breadcrumbs')->add(new Breadcrumb($this->wire('page')->url, __('Email Log')));
+
+		$tpl = new TemplateFile(__DIR__ . '/views/detail.php');
+		$tpl->setArray([
+			'entry' => $entry,
+			'adminPage' => $this->wire('page'),
+		]);
+
+		return $tpl->render();
+	}
+
+	/* ***** Resend *** */
+
+	/**
+	 * Handle resend POST request for an existing log entry.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___executeResend(): string
+	{
+		$input = $this->wire('input');
+		$session = $this->wire('session');
+		$adminPage = $this->wire('page');
+
+		if (!$input->post('submit_resend')) {
+			$session->redirect($adminPage->url);
+			return '';
+		}
+
+		$id = (int) $input->post('id');
+		$entry = $this->getEntry($id);
+
+		if (!$entry) {
+			$this->error(__('Entry not found.'));
+			$session->redirect($adminPage->url);
+			return '';
+		}
+
+		/** @var EmailService $emailService */
+		$emailService = $this->wire('modules')->get('EmailService');
+		$sent = $emailService->resend($entry);
+
+		if ($sent) {
+			$this->message(sprintf(__('Email to %s resent successfully.'), $entry['to_email']));
+		} else {
+			$this->error(sprintf(__('Failed to resend email to %s.'), $entry['to_email']));
+		}
+
+		$session->redirect($adminPage->url . 'detail/?id=' . $id);
+		return '';
+	}
+
+	/* ***** Delete *** */
+
+	/**
+	 * Delete email log entries matching the active filter (superuser only).
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___executeDelete(): string
+	{
+		$input = $this->wire('input');
+		$session = $this->wire('session');
+		$sanitizer = $this->wire('sanitizer');
+		$adminPage = $this->wire('page');
+
+		if (!$this->wire('user')->isSuperuser()) {
+			throw new WirePermissionException(__('You do not have permission to delete email logs.'));
+		}
+
+		if (!$input->post('submit_delete') || !$session->CSRF->hasValidToken()) {
+			$session->redirect($adminPage->url);
+			return '';
+		}
+
+		$filterStatus = $sanitizer->text($input->post('status') ?? '');
+		if (!in_array($filterStatus, ['sent', 'failed'])) $filterStatus = '';
+		$filterTemplate = $sanitizer->text($input->post('template') ?? '');
+
+		$deleted = $this->deleteEntries($filterStatus, $filterTemplate);
+
+		$this->message(sprintf(__('%d email log entries deleted.'), $deleted));
+
+		$params = [];
+		if ($filterStatus) $params['status'] = $filterStatus;
+		if ($filterTemplate) $params['template'] = $filterTemplate;
+		$queryString = $params ? '?' . http_build_query($params) : '';
+
+		$session->redirect($adminPage->url . $queryString);
+		return '';
+	}
+
+	/* ***** Preview *** */
+
+	/**
+	 * Show a template preview using registered sample data.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___executePreview(): string
+	{
+		$this->headline(__('Template Preview'));
+		$this->browserTitle(__('Template Preview'));
+		$this->wire('breadcrumbs')->add(new Breadcrumb($this->wire('page')->url, __('Email Log')));
+
+		/** @var EmailService $emailService */
+		$emailService = $this->wire('modules')->get('EmailService');
+		$templates = $emailService->getRegisteredTemplates();
+
+		$selectedTemplate = $this->wire('sanitizer')->text($this->wire('input')->get('template') ?? '');
+		$previewHtml = '';
+
+		if ($selectedTemplate && isset($templates[$selectedTemplate])) {
+			$sampleData = $templates[$selectedTemplate]['sampleData'];
+			$previewHtml = $emailService->render($selectedTemplate, $sampleData);
+		}
+
+		$tpl = new TemplateFile(__DIR__ . '/views/preview.php');
+		$tpl->setArray([
+			'templates' => $templates,
+			'selectedTemplate' => $selectedTemplate,
+			'previewHtml' => $previewHtml,
+			'adminPage' => $this->wire('page'),
+		]);
+
+		return $tpl->render();
+	}
+
+	/**
+	 * Render iframe content for email preview or template preview.
+	 *
+	 * @return void
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 */
+	public function ___executeIframe(): void
+	{
+		$input = input();
+		$sanitizer = sanitizer();
+		$id = $input->get('id', 'int');
+
+		if ($id) {
+			$entry = $this->getEntry($id);
+			if ($entry) echo $entry['body_html'];
+			exit;
+		}
+
+		$template = $sanitizer->text($input->get('template') ?? '');
+		if ($template) {
+			/** @var EmailService $emailService */
+			$emailService = $this->wire('modules')->get('EmailService');
+			$templates = $emailService->getRegisteredTemplates();
+			if (isset($templates[$template])) {
+				$format = $this->wire('sanitizer')->text($input->get('format') ?? 'html');
+				if ($format === 'text') {
+					$text = $emailService->renderText($template, $templates[$template]['sampleData']);
+					echo '<html><body><pre style="white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:14px;padding:20px;margin:0;">'
+						. $this->wire('sanitizer')->entities($text)
+						. '</pre></body></html>';
+				} else {
+					echo $emailService->render($template, $templates[$template]['sampleData']);
+				}
+			}
+			exit;
+		}
+
+		exit;
+	}
+
+	/**
+	 * Database Queries
+	 *
+	 * @param string $status
+	 * @param string $template
+	 * @param int $pg
+	 * @return array
+	 * @throws WireException
+	 */
+	protected function queryEntries(string $status, string $template, int $pg): array
+	{
+		try {
+			$db = $this->wire('database');
+			$offset = ($pg - 1) * self::perPage;
+
+			[$where, $params] = $this->buildWhere($status, $template);
+
+			$stmt = $db->prepare(
+				"SELECT `id`, `to_email`, `from_email`, `subject`, `template`, `status`, `created`
+				 FROM `" . EmailService::logTable . "` {$where}
+				 ORDER BY `created` DESC
+				 LIMIT :limit OFFSET :offset"
+			);
+			foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+			$stmt->bindValue(':limit', self::perPage, \PDO::PARAM_INT);
+			$stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+			$stmt->execute();
+
+			return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+		} catch (\Exception $e) {
+			$this->wire('log')->save(EmailService::logName, "queryEntries() failed: " . $e->getMessage());
+			return [];
+		}
+	}
+
+	/**
+	 * Count total email log entries matching the given filters.
+	 *
+	 * @param string $status
+	 * @param string $template
+	 * @return int
+	 * @throws WireException
+	 */
+	protected function queryCount(string $status, string $template): int
+	{
+		try {
+			$db = $this->wire('database');
+			[$where, $params] = $this->buildWhere($status, $template);
+
+			$stmt = $db->prepare("SELECT COUNT(*) FROM `" . EmailService::logTable . "` {$where}");
+			foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+			$stmt->execute();
+
+			return (int) $stmt->fetchColumn();
+		} catch (\Exception $e) {
+			return 0;
+		}
+	}
+
+	/**
+	 * Delete email log entries matching the given filters.
+	 *
+	 * @param string $status
+	 * @param string $template
+	 * @return int Number of deleted rows
+	 * @throws WireException
+	 */
+	protected function deleteEntries(string $status, string $template): int
+	{
+		try {
+			$db = $this->wire('database');
+			[$where, $params] = $this->buildWhere($status, $template);
+
+			$stmt = $db->prepare("DELETE FROM `" . EmailService::logTable . "` {$where}");
+			foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+			$stmt->execute();
+
+			return $stmt->rowCount();
+		} catch (\Exception $e) {
+			$this->wire('log')->save(EmailService::logName, "deleteEntries() failed: " . $e->getMessage());
+			return 0;
+		}
+	}
+
+	/**
+	 * Build a WHERE clause and parameter array from filter values.
+	 *
+	 * @param string $status
+	 * @param string $template
+	 * @return array{string, array}
+	 */
+	private function buildWhere(string $status, string $template): array
+	{
+		$conditions = [];
+		$params = [];
+
+		if ($status !== '') {
+			$conditions[] = '`status` = :status';
+			$params[':status'] = $status;
+		}
+		if ($template === '_none') {
+			$conditions[] = "`template` = ''";
+		} else if ($template !== '') {
+			$conditions[] = '`template` = :template';
+			$params[':template'] = $template;
+		}
+
+		$where = count($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+		return [$where, $params];
+	}
+
+	/**
+	 * Get distinct template values from the email_log table.
+	 *
+	 * @return string[]
+	 * @throws WireException
+	 */
+	protected function queryDistinctTemplates(): array
+	{
+		try {
+			$db = $this->wire('database');
+			$stmt = $db->query("SELECT DISTINCT `template` FROM `" . EmailService::logTable . "` ORDER BY `template`");
+			return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+		} catch (\Exception $e) {
+			return [];
+		}
+	}
+
+	/**
+	 * Fetch a single email log entry by ID.
+	 *
+	 * @param int $id
+	 * @return array|false
+	 * @throws WireException
+	 */
+	protected function getEntry(int $id): array|false
+	{
+		try {
+			$db = $this->wire('database');
+			$stmt = $db->prepare("SELECT * FROM `" . EmailService::logTable . "` WHERE `id` = :id LIMIT 1");
+			$stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+			$stmt->execute();
+
+			$row = $stmt->fetch(\PDO::FETCH_ASSOC);
+			return $row ?: false;
+		} catch (\Exception $e) {
+			return false;
+		}
+	}
+}
