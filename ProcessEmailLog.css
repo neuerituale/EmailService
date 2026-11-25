@@ -43,7 +43,7 @@ body.ProcessEmailLog #main.uk-margin-large-bottom {
 #email-preview .email-preview-bar {
 	min-height: 40px;
 	padding-bottom: 8px;
-	border-bottom: 1px solid rgba(0, 0, 0, .1);
+	border-bottom: 1px solid var(--pw-border-color);
 }
 
 /* heading of the template list: same size as the buttons next to it */
