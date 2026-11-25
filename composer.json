@@ -1,5 +1,5 @@
 {
-    "name": "neuerituale/emailservice",
+    "name": "nr/emailservice",
     "description": "ProcessWire module for templated emails with CSS inlining and logging",
     "type": "processwire-module",
     "keywords": ["processwire", "email", "mail", "templates", "css-inlining"],

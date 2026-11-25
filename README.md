@@ -20,10 +20,12 @@ ProcessWire-Modul für templated E-Mails mit CSS-Inlining, Versand-Log und Admin
 
 ## Installation
 
-### Variante A: per Composer im Projekt
+### Variante A: per Composer im Projekt (empfohlen)
+
+Das Modul ist auf Packagist verfügbar: [nr/emailservice](https://packagist.org/packages/nr/emailservice). Im Projekt-Root ausführen:
 
 ```bash
-composer require neuerituale/emailservice
+composer require nr/emailservice
 ```
 
 `composer/installers` legt das Modul nach `site/modules/EmailService/`. Emogrifier landet im `vendor/` des Projekts und wird über dessen Autoloader geladen.
