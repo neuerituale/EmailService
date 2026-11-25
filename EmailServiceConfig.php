@@ -82,7 +82,7 @@ class EmailServiceConfig extends ModuleConfig
 		$f = $modules->get('InputfieldEmail');
 		$f->name = 'defaultFrom';
 		$f->label = $this->_('Default sender (email)');
-		$f->description = $this->_('Falls back to $config->adminEmail if empty');
+		$f->notes = $this->_('Falls back to $config->adminEmail if empty');
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
