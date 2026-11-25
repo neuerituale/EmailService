@@ -1,7 +1,6 @@
 en,de,description,file,hash
-"EmailService: The configured Composer autoload file %s does not exist.","EmailService: Die konfigurierte Composer-Autoload-Datei %s existiert nicht.",,site/modules/EmailService/EmailService.module,e8bcfa77fdefb8740b3672174ffce8d8
 "EmailService: pelago/emogrifier is not installed, CSS is not inlined. Run %1$s in %2$s or %3$s in the project root.","EmailService: pelago/emogrifier ist nicht installiert, CSS wird nicht inline gesetzt. Führe %1$s in %2$s oder %3$s im Projekt-Root aus.",,site/modules/EmailService/EmailService.module,c2e2968f98ab35ac6bfefd2a2eff2666
-"pelago/emogrifier not found. CSS will be embedded in a style block instead of being inlined. Searched: %s","pelago/emogrifier nicht gefunden. CSS wird als Style-Block eingebettet statt inline gesetzt. Durchsucht: %s",,site/modules/EmailService/EmailService.module,f01d304433c2bc88d54a17d6ae45e71f
+"pelago/emogrifier not found: neither loaded by the project autoloader nor in %s. CSS will be embedded in a style block instead of being inlined.","pelago/emogrifier nicht gefunden: weder vom Autoloader des Projekts geladen noch in %s. CSS wird als Style-Block eingebettet statt inline gesetzt.",,site/modules/EmailService/EmailService.module,78ba600ba2c83042e6e8df28bc3bf901
 "pelago/emogrifier is available (already loaded).","pelago/emogrifier ist verfügbar (bereits geladen).",,site/modules/EmailService/EmailService.module,65d60050573944faecf59158a7c50d55
 "pelago/emogrifier is available (loaded from %s).","pelago/emogrifier ist verfügbar (geladen aus %s).",,site/modules/EmailService/EmailService.module,ac94ca79569ec4b2a8a9e9f5aaa5e95c
 "Email template directory %s does not exist yet. Examples: %s","Das E-Mail-Template-Verzeichnis %s existiert noch nicht. Beispiele: %s",,site/modules/EmailService/EmailService.module,04b5c99b9b4b74b52e092f932d55ef2b
@@ -23,8 +22,7 @@ en,de,description,file,hash
 "Runs via ProcessCronJobs.","Läuft über ProcessCronJobs.",,site/modules/EmailService/EmailService.module,bbe4025398640330cb9a5c2d57c6ae02
 "Runs via LazyCron.","Läuft über LazyCron.",,site/modules/EmailService/EmailService.module,cf1102a0bc9cbe551ba977db0a060b6e
 "Neither ProcessCronJobs nor LazyCron is installed, old entries are not deleted automatically.","Weder ProcessCronJobs noch LazyCron ist installiert, alte Einträge werden nicht automatisch gelöscht.",,site/modules/EmailService/EmailService.module,db3670d3297f3a5e77cadb9ca4789491
-"Composer autoload file",Composer-Autoload-Datei,,site/modules/EmailService/EmailService.module,3f66c4e47ded732274a6142cd27ef342
-"Optional path to a vendor/autoload.php that provides pelago/emogrifier (absolute or relative to the root). Leave empty for automatic lookup.","Optionaler Pfad zu einer vendor/autoload.php mit pelago/emogrifier (absolut oder relativ zum Root). Leer lassen für automatische Suche.",,site/modules/EmailService/EmailService.module,31633240fa88874a5833eb4c8d0b3fb4
+"CSS inlining",CSS-Inlining,,site/modules/EmailService/EmailService.module,c522d1ffaf603ba50ae9dbc6b04d31c5
 "Email Log","E-Mail Logs",,site/modules/EmailService/ProcessEmailLog.module,9e07b564f108340ddde0d65b6ef59206
 "Entry not found.","Eintrag nicht gefunden.",,site/modules/EmailService/ProcessEmailLog.module,ac78884eba042183e8f47b5bb819c55f
 "Email Detail","E-Mail Details",,site/modules/EmailService/ProcessEmailLog.module,4c7b7ad16c40d0bd66c9630fe6982e5f

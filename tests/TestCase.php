@@ -119,7 +119,6 @@ abstract class TestCase extends BaseTestCase
 			'defaultFrom' => 'sender@example.test',
 			'defaultFromName' => 'Test Sender',
 			'retainDays' => 90,
-			'autoloadFile' => '',
 		]);
 
 		$this->savedTemplatesPath = $wire->config->paths->templates;

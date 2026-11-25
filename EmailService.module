@@ -30,7 +30,6 @@ use Pelago\Emogrifier\CssInliner;
  * @property string $defaultFrom
  * @property string $defaultFromName
  * @property int $retainDays
- * @property string $autoloadFile Optional path to a Composer autoload.php
  */
 class EmailService extends WireData implements Module, ConfigurableModule {
 
@@ -68,7 +67,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '2.5.0',
+			'version' => '2.6.0',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -90,7 +89,6 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			'defaultFrom' => '',
 			'defaultFromName' => '',
 			'retainDays' => 90,
-			'autoloadFile' => '',
 		];
 	}
 
@@ -425,31 +423,15 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	/* ***** Dependencies *** */
 
 	/**
-	 * Get possible locations of a Composer autoload.php, in lookup order.
+	 * Get the Composer autoload file of the module (composer install inside the module).
 	 *
-	 * @return string[]
-	 * @throws WireException
+	 * Installed in the project with Composer, pelago/emogrifier is loaded by the
+	 * project autoloader instead, which ProcessWire includes in index.php.
+	 *
+	 * @return string
 	 */
-	public function getAutoloadCandidates(): array {
-		$config = $this->wire('config');
-		$candidates = [];
-
-		$custom = trim((string) $this->autoloadFile);
-		if ($custom !== '') {
-			$candidates[] = str_starts_with($custom, '/') && is_file($custom)
-				? $custom
-				: $config->paths->root . ltrim($custom, '/');
-		}
-
-		$candidates[] = __DIR__ . '/vendor/autoload.php';             // composer install inside the module
-		$candidates[] = $config->paths->site . 'vendor/autoload.php';  // /site/vendor/
-		$candidates[] = $config->paths->root . 'vendor/autoload.php';  // project root
-
-		// docroot is a subfolder of the Composer project (e.g. project/public/)
-		$parent = dirname($config->paths->root);
-		if (is_file("$parent/composer.json")) $candidates[] = "$parent/vendor/autoload.php";
-
-		return array_values(array_unique($candidates));
+	public function getAutoloadFile(): string {
+		return __DIR__ . '/vendor/autoload.php';
 	}
 
 	/**
@@ -463,15 +445,13 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			$this->inlinerSource = false;
 
 			if (class_exists(self::inlinerClass)) {
+				// already loaded, e.g. by the project autoloader (vendor/autoload.php in the root)
 				$this->inlinerSource = '';
 			} else {
-				foreach ($this->getAutoloadCandidates() as $file) {
-					if (!is_file($file)) continue;
+				$file = $this->getAutoloadFile();
+				if (is_file($file)) {
 					require_once $file;
-					if (class_exists(self::inlinerClass)) {
-						$this->inlinerSource = $file;
-						break;
-					}
+					if (class_exists(self::inlinerClass)) $this->inlinerSource = $file;
 				}
 			}
 		}
@@ -487,14 +467,6 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 */
 	public function getDependencyWarnings(): array {
 		$warnings = [];
-
-		$custom = trim((string) $this->autoloadFile);
-		if ($custom !== '') {
-			$file = $this->getAutoloadCandidates()[0];
-			if (!is_file($file)) {
-				$warnings[] = sprintf($this->_('EmailService: The configured Composer autoload file %s does not exist.'), $custom);
-			}
-		}
 
 		if (!$this->hasInliner()) {
 			$warnings[] = sprintf(
@@ -517,8 +489,8 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	public function getInlinerStatus(): string {
 		if (!$this->hasInliner()) {
 			return sprintf(
-				$this->_('pelago/emogrifier not found. CSS will be embedded in a style block instead of being inlined. Searched: %s'),
-				implode(', ', $this->getAutoloadCandidates())
+				$this->_('pelago/emogrifier not found: neither loaded by the project autoloader nor in %s. CSS will be embedded in a style block instead of being inlined.'),
+				$this->getAutoloadFile()
 			);
 		}
 
@@ -963,6 +935,13 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			$this->message('Installed ProcessEmailLog');
 		}
 
+		// < 2.6.0: the Composer autoload file was configurable
+		$data = $modules->getConfig($this);
+		if (array_key_exists('autoloadFile', $data)) {
+			unset($data['autoloadFile']);
+			$modules->saveConfig($this, $data);
+		}
+
 		// < 2.5.0: templatePath was relative to /site/templates/ (< 2.2.0: "/site/templates/email/"),
 		// now it is relative to the root
 		$from = $modules->formatVersion($fromVersion);
@@ -1115,18 +1094,17 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
-		/** @var InputfieldText $f */
-		$f = $modules->get('InputfieldText');
-		$f->name = 'autoloadFile';
-		$f->label = $this->_('Composer autoload file');
-		$f->description = $this->_('Optional path to a vendor/autoload.php that provides pelago/emogrifier (absolute or relative to the root). Leave empty for automatic lookup.');
-		$f->notes = $this->getInlinerStatus();
-		$f->value = $this->autoloadFile;
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->name = 'inlinerStatus';
+		$f->label = $this->_('CSS inlining');
+		// long paths wrap instead of overflowing the column
+		$f->value = '<p style="overflow-wrap:anywhere;">' . $this->wire('sanitizer')->entities($this->getInlinerStatus()) . '</p>';
 		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		// the settings are always open, without collapse toggle
-		foreach (array_keys($this->getDefaults()) as $name) {
+		foreach (array_merge(array_keys($this->getDefaults()), ['inlinerStatus']) as $name) {
 			$field = $inputfields->getChildByName($name);
 			if ($field) $field->collapsed = Inputfield::collapsedNever;
 		}

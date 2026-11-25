@@ -182,26 +182,18 @@ final class RegistryAndConfigTest extends TestCase
 
 	/* ***** Dependencies *** */
 
-	public function testAutoloadCandidates(): void
+	public function testAutoloadFileIsTheModuleVendor(): void
 	{
-		$config = $this->wire()->config;
+		$this->assertSame(dirname(__DIR__) . '/vendor/autoload.php', $this->service()->getAutoloadFile());
+		$this->assertArrayNotHasKey('autoloadFile', $this->service()->getDefaults(), 'The autoload file is not configurable.');
+	}
+
+	public function testInlinerStatusWhenMissingNamesTheModuleVendor(): void
+	{
 		$service = $this->service();
-		$moduleDir = dirname(__DIR__);
+		$this->setProperty($service, 'inlinerSource', false);
 
-		$candidates = $service->getAutoloadCandidates();
-		$this->assertSame($moduleDir . '/vendor/autoload.php', $candidates[0]);
-		$this->assertContains($config->paths->site . 'vendor/autoload.php', $candidates);
-		$this->assertContains($config->paths->root . 'vendor/autoload.php', $candidates);
-		$this->assertSame(array_values(array_unique($candidates)), $candidates);
-
-		$service->autoloadFile = 'custom/vendor/autoload.php';
-		$this->assertSame($config->paths->root . 'custom/vendor/autoload.php', $service->getAutoloadCandidates()[0]);
-
-		$service->autoloadFile = '/custom/vendor/autoload.php';
-		$this->assertSame($config->paths->root . 'custom/vendor/autoload.php', $service->getAutoloadCandidates()[0], 'A missing absolute path is treated as relative to the root.');
-
-		$service->autoloadFile = $moduleDir . '/vendor/autoload.php';
-		$this->assertSame($moduleDir . '/vendor/autoload.php', $service->getAutoloadCandidates()[0]);
+		$this->assertStringContainsString(dirname(__DIR__) . '/vendor/autoload.php', $service->getInlinerStatus());
 	}
 
 	public function testNoDependencyWarningsWhenInstalled(): void
@@ -226,17 +218,6 @@ final class RegistryAndConfigTest extends TestCase
 		$this->assertStringContainsString('not found', $service->getInlinerStatus());
 	}
 
-	public function testDependencyWarningForMissingConfiguredAutoloadFile(): void
-	{
-		$service = $this->service();
-		$service->autoloadFile = 'no/such/autoload.php';
-
-		$warnings = $service->getDependencyWarnings();
-
-		$this->assertNotEmpty($warnings);
-		$this->assertStringContainsString('no/such/autoload.php', $warnings[0]);
-	}
-
 	public function testInlinerStatusWhenAvailable(): void
 	{
 		$service = $this->service();
@@ -258,8 +239,11 @@ final class RegistryAndConfigTest extends TestCase
 		$inputfields = $service->getModuleConfigInputfields(new InputfieldWrapper());
 
 		$this->assertNotNull($inputfields->getChildByName('templatePath'));
-		$this->assertNotNull($inputfields->getChildByName('autoloadFile'));
-		foreach (array_keys($service->getDefaults()) as $name) {
+		$this->assertNull($inputfields->getChildByName('autoloadFile'), 'The autoload file is not configurable.');
+		$status = $inputfields->getChildByName('inlinerStatus');
+		$this->assertInstanceOf(InputfieldMarkup::class, $status);
+		$this->assertStringContainsString('pelago/emogrifier not found', $status->value);
+		foreach (array_merge(array_keys($service->getDefaults()), ['inlinerStatus']) as $name) {
 			$field = $inputfields->getChildByName($name);
 			$this->assertNotNull($field, $name);
 			$this->assertSame(Inputfield::collapsedNever, $field->collapsed, "$name can not be collapsed");
@@ -274,7 +258,7 @@ final class RegistryAndConfigTest extends TestCase
 
 	public function testModuleVersions(): void
 	{
-		$this->assertSame('2.5.0', EmailService::getModuleInfo()['version']);
+		$this->assertSame('2.6.0', EmailService::getModuleInfo()['version']);
 		$this->assertSame('1.2.0', ProcessEmailLog::getModuleInfo()['version']);
 	}
 }

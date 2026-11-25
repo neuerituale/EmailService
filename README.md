@@ -44,19 +44,12 @@ composer require neuerituale/emailservice
 
 Im Admin unter **Modules > Refresh** das Modul **Email Service** installieren. `ProcessEmailLog` wird automatisch mitinstalliert und beim Deinstallieren wieder entfernt. Bei der Installation erscheinen Hinweise, falls Emogrifier oder das Template-Verzeichnis fehlen.
 
-### Wo nach Emogrifier gesucht wird
+### Wo Emogrifier geladen wird
 
-Ist die Klasse `Pelago\Emogrifier\CssInliner` noch nicht geladen, sucht das Modul in dieser Reihenfolge nach einer `autoload.php` und lädt die erste, die die Klasse bereitstellt:
+1. Ist die Klasse `Pelago\Emogrifier\CssInliner` schon geladen, wird sie verwendet. Das ist der Fall, wenn Emogrifier per Composer im Projekt installiert ist: ProcessWire lädt `vendor/autoload.php` im Root selbst über `index.php`.
+2. Sonst lädt das Modul `site/modules/EmailService/vendor/autoload.php` (`composer install` im Modulordner).
 
-1. Pfad aus der Modul-Konfiguration **Composer-Autoload-Datei** (absolut oder relativ zum Root)
-2. `site/modules/EmailService/vendor/autoload.php`: `composer install` im Modulordner
-3. `site/vendor/autoload.php`
-4. `vendor/autoload.php` im ProcessWire-Root. Diesen lädt ProcessWire meist schon selbst über `index.php`.
-5. `../vendor/autoload.php`, falls der Docroot ein Unterordner des Composer-Projekts ist (z. B. `projekt/public/`) und dort eine `composer.json` liegt
-
-Welche Datei verwendet wurde, steht in der Modul-Konfiguration unter dem Feld **Composer-Autoload-Datei**.
-
-Fehlt Emogrifier oder existiert eine konfigurierte Autoload-Datei nicht, erscheint eine Warnung bei der Installation, in der Modul-Konfiguration und (für Superuser) auf den Seiten unter **Setup > E-Mail Logs**.
+Welche Quelle verwendet wird, zeigt die Modul-Konfiguration unter **CSS-Inlining**. Fehlt Emogrifier, erscheint eine Warnung bei der Installation, in der Modul-Konfiguration und (für Superuser) auf den Seiten unter **Setup > E-Mail Logs**.
 
 ## Konfiguration
 
@@ -70,7 +63,6 @@ Fehlt Emogrifier oder existiert eine konfigurierte Autoload-Datei nicht, erschei
 | Standard-Absender | – | Fallback: `$config->adminEmail` |
 | Absender-Name | – | Name des Absenders |
 | Log-Aufbewahrung | `90` | Einträge älter als X Tage werden täglich gelöscht, `0` = unbegrenzt |
-| Composer-Autoload-Datei | – | Optionaler Pfad zu einer `vendor/autoload.php`, sonst automatische Suche (s. o.) |
 
 Das Konfigurationsfeld zeigt den aufgelösten Template-Pfad an und warnt, wenn das Verzeichnis fehlt.
 
@@ -318,6 +310,7 @@ vendor/bin/phpunit
 Beim Aktualisieren der Moduldateien führt ProcessWire `___upgrade()` automatisch aus (Modules > Refresh):
 
 - **< 2.1.0:** `ProcessEmailLog` wird nachinstalliert, falls es fehlt.
+- **2.6.0:** Die Option **Composer-Autoload-Datei** entfällt, das Upgrade entfernt den gespeicherten Wert. Emogrifier wird nur noch aus dem Autoloader des Projekts oder aus dem `vendor/` des Moduls geladen, nicht mehr aus `site/vendor/` oder einem übergeordneten Verzeichnis.
 - **2.5.0:** Der Template-Pfad ist jetzt relativ zum ProcessWire-Root statt zu `/site/templates/`. Das Upgrade stellt einen gespeicherten Wert um, z. B. `email/` → `site/templates/email/`. Die Felder der Modul-Konfiguration sind immer geöffnet.
 - **< 2.2.0:** Ein bisheriger root-relativer Template-Pfad wie `/site/templates/email/` wird auf `email/` umgestellt. Der alte Wert würde aber auch ohne Umstellung weiterhin aufgelöst.
 - **2.3.0 / ProcessEmailLog 1.1.0:** Mehrsprachigkeit. `registerTemplate()` akzeptiert eine Closure als Beispieldaten. Die Seite „Email Log“ bekommt übersetzte Titel. Rückwärtskompatibel: Ohne `language` wird wie bisher in der aktuellen Sprache gerendert.
