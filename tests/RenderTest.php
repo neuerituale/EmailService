@@ -160,4 +160,73 @@ final class RenderTest extends TestCase
 	{
 		$this->assertSame('', $this->callMethod($this->service(), 'htmlToText', ['']));
 	}
+
+	/* ***** Text wrapper *** */
+
+	public function testTextWrapperFileFollowsTheWrapperSetting(): void
+	{
+		$service = $this->service();
+		$dir = $this->fixturesPath() . 'email/';
+
+		// wrapper.php has no wrapper.txt.php in the fixtures
+		$this->assertSame('', $service->getTextWrapperFile());
+
+		$service->wrapperFile = 'framed.php';
+		$this->assertSame($dir . 'framed.txt.php', $service->getTextWrapperFile());
+
+		foreach (['', 'framed.txt.php', 'framed', 'framed.html', 'missing.php'] as $wrapper) {
+			$service->wrapperFile = $wrapper;
+			$this->assertSame('', $service->getTextWrapperFile(), "Wrapper setting: '$wrapper'");
+		}
+	}
+
+	public function testRenderTextUsesTextWrapper(): void
+	{
+		$service = $this->service();
+		$service->wrapperFile = 'framed.php';
+
+		$text = $service->renderText('basic', ['name' => 'Ada', 'subject' => 'Hi']);
+
+		$language = $service->hasLanguageSupport() ? $this->wire()->user->language->name : 'none';
+		$this->assertSame("TEXT-WRAP-START Hi $language\n\nText for Ada\n\nTEXT-WRAP-END", $text, 'The wrapper gets the template data and the trimmed text as $content.');
+	}
+
+	public function testRenderTextWithoutTextWrapperIsUnchanged(): void
+	{
+		$this->assertSame('Text for Ada', $this->service()->renderText('basic', ['name' => 'Ada']));
+	}
+
+	public function testTextWrapperIsRenderedInTheLanguage(): void
+	{
+		$language = $this->otherLanguage();
+		$service = $this->service();
+		$service->wrapperFile = 'framed.php';
+
+		$text = $service->renderText('language', [], $language);
+
+		$this->assertStringStartsWith("TEXT-WRAP-START  $language->name", $text);
+		$this->assertStringContainsString("TEXT-LANG:$language->name", $text);
+	}
+
+	public function testTextFromHtmlIsNotWrappedAgain(): void
+	{
+		$service = $this->service();
+		$service->wrapperFile = 'framed.php';
+
+		$text = $service->renderTextBody('no-text');
+
+		$this->assertStringNotContainsString('TEXT-WRAP', $text, 'Text from the HTML already contains the HTML wrapper.');
+	}
+
+	public function testSendUsesTextWrapper(): void
+	{
+		$service = $this->service();
+		$service->wrapperFile = 'framed.php';
+
+		$this->assertTrue($service->send(['to' => 'wrap@phpunit.test', 'subject' => 'Wrapped', 'template' => 'basic', 'data' => ['name' => 'Ada']]));
+
+		$this->assertStringStartsWith('TEXT-WRAP-START Wrapped', $this->sentMails[0]->body);
+		$this->assertStringEndsWith('TEXT-WRAP-END', $this->sentMails[0]->body);
+		$this->assertSame($this->sentMails[0]->body, $this->logRows()[0]['body_text']);
+	}
 }

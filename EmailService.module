@@ -70,7 +70,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '2.6.0',
+			'version' => '2.7.0',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -689,7 +689,29 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		if (!$textFile) return '';
 		$language = $this->resolveLanguageOrLog($language, "renderText('$template')");
 		if ($language === false) return '';
-		return $this->withLanguage($language, fn() => trim($this->renderFile($textFile, $data)));
+		return $this->withLanguage($language, function() use ($textFile, $data) {
+			$text = trim($this->renderFile($textFile, $data));
+			$wrapperFile = $this->getTextWrapperFile();
+			if ($wrapperFile === '') return $text;
+			return trim($this->renderFile($wrapperFile, array_merge($data, ['content' => $text])));
+		});
+	}
+
+	/**
+	 * Get the wrapper for plain text emails: the wrapper file with .txt.php instead
+	 * of .php (wrapper.php → wrapper.txt.php), e.g. for a signature with the sender address.
+	 *
+	 * Text generated from the HTML (no .txt.php template) already contains the HTML
+	 * wrapper, so this is only used for .txt.php templates.
+	 *
+	 * @return string Absolute file, or '' if there is none
+	 * @throws WireException
+	 */
+	public function getTextWrapperFile(): string {
+		$wrapper = (string) $this->wrapperFile;
+		if (!str_ends_with($wrapper, '.php') || str_ends_with($wrapper, '.txt.php')) return '';
+		$file = $this->getTemplatePath() . substr($wrapper, 0, -4) . '.txt.php';
+		return is_file($file) ? $file : '';
 	}
 
 	/**

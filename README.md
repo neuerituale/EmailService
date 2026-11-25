@@ -1,76 +1,76 @@
 # EmailService
 
-ProcessWire-Modul für templated E-Mails mit CSS-Inlining, Versand-Log und Admin-Oberfläche.
+ProcessWire module for templated emails with CSS inlining, a send log and an admin interface.
 
 ## Features
 
-- E-Mail-Templates als PHP-Dateien mit voller ProcessWire-API, standardmäßig in `/site/templates/email/`
-- Gemeinsamer Wrapper (Layout) und eine CSS-Datei, die automatisch inline gesetzt wird ([Emogrifier](https://github.com/MyIntervals/emogrifier))
-- Optionale Plain-Text-Templates, sonst wird der Text aus dem HTML erzeugt
-- Mehrsprachig: Templates werden in einer wählbaren Sprache gerendert (`__()`, mehrsprachige Felder)
-- Log aller versendeten E-Mails, auch solcher, die andere Module direkt über `WireMail` verschicken
-- Admin-Seite **Setup > Email Log** (`ProcessEmailLog`): Liste mit Filtern, Detailansicht, erneut senden, löschen, Template-Vorschau für Phone/Tablet/Desktop, HTML/Text und alle Sprachen
-- Automatisches Aufräumen alter Log-Einträge über ProcessCronJobs oder LazyCron
+- Email templates as PHP files with the full ProcessWire API, by default in `/site/templates/email/`
+- A shared wrapper (layout) and a CSS file that is inlined automatically ([Emogrifier](https://github.com/MyIntervals/emogrifier))
+- Optional plain text templates, otherwise the text part is generated from the HTML
+- Multi-language: templates are rendered in a selectable language (`__()`, multi-language fields)
+- Log of all sent emails, including those that other modules send directly via `WireMail`
+- Admin page **Setup > Email Log** (`ProcessEmailLog`): list with filters, detail view, resend, delete, template preview for phone/tablet/desktop, HTML/text and all languages
+- Automatic cleanup of old log entries via ProcessCronJobs or LazyCron
 
-## Voraussetzungen
+## Requirements
 
 - PHP >= 8.0
 - ProcessWire >= 3.0
-- `pelago/emogrifier` (Composer), empfohlen. Ohne Emogrifier funktioniert das Modul ebenfalls, das CSS wird dann als `<style>`-Block in den `<head>` eingebettet statt inline gesetzt. Viele Mail-Clients ignorieren `<style>`-Blöcke teilweise.
+- `pelago/emogrifier` (Composer), recommended. The module also works without Emogrifier: the CSS is then embedded as a `<style>` block in the `<head>` instead of being inlined. Many mail clients partly ignore `<style>` blocks.
 
 ## Installation
 
-### Variante A: per Composer im Projekt (empfohlen)
+### Option A: with Composer in the project (recommended)
 
-Das Modul ist auf Packagist verfügbar: [nr/emailservice](https://packagist.org/packages/nr/emailservice). Im Projekt-Root ausführen:
+The module is available on Packagist: [nr/emailservice](https://packagist.org/packages/nr/emailservice). Run in the project root:
 
 ```bash
 composer require nr/emailservice
 ```
 
-`composer/installers` legt das Modul nach `site/modules/EmailService/`. Emogrifier landet im `vendor/` des Projekts und wird über dessen Autoloader geladen.
+`composer/installers` puts the module into `site/modules/EmailService/`. Emogrifier is installed into the project's `vendor/` and loaded by its autoloader.
 
-### Variante B: Modulordner kopieren
+### Option B: copy the module folder
 
-1. Ordner nach `site/modules/EmailService/` kopieren
-2. Emogrifier an einer der folgenden Stellen installieren, z. B. direkt im Modul:
+1. Copy the folder to `site/modules/EmailService/`
+2. Install Emogrifier in one of these places, e.g. inside the module:
    ```bash
    cd site/modules/EmailService && composer install --no-dev
    ```
-   oder im Projekt-Root:
+   or in the project root:
    ```bash
    composer require pelago/emogrifier
    ```
 
-### Danach
+### Then
 
-Im Admin unter **Modules > Refresh** das Modul **Email Service** installieren. `ProcessEmailLog` wird automatisch mitinstalliert und beim Deinstallieren wieder entfernt. Bei der Installation erscheinen Hinweise, falls Emogrifier oder das Template-Verzeichnis fehlen.
+In the admin, go to **Modules > Refresh** and install **Email Service**. `ProcessEmailLog` is installed along with it and removed again on uninstall. During installation, notices appear if Emogrifier or the template directory is missing.
 
-### Wo Emogrifier geladen wird
+### Where Emogrifier is loaded from
 
-1. Ist die Klasse `Pelago\Emogrifier\CssInliner` schon geladen, wird sie verwendet. Das ist der Fall, wenn Emogrifier per Composer im Projekt installiert ist: ProcessWire lädt `vendor/autoload.php` im Root selbst über `index.php`.
-2. Sonst lädt das Modul `site/modules/EmailService/vendor/autoload.php` (`composer install` im Modulordner).
+1. If the class `Pelago\Emogrifier\CssInliner` is already loaded, it is used. This is the case when Emogrifier is installed in the project with Composer: ProcessWire itself loads `vendor/autoload.php` in the root via `index.php`.
+2. Otherwise the module loads `site/modules/EmailService/vendor/autoload.php` (`composer install` in the module folder).
 
-Welche Quelle verwendet wird, zeigt die Modul-Konfiguration unter **CSS-Inlining**. Fehlt Emogrifier, erscheint eine Warnung bei der Installation, in der Modul-Konfiguration und (für Superuser) auf den Seiten unter **Setup > E-Mail Logs**.
+The module configuration shows the source in use under **CSS inlining**. If Emogrifier is missing, a warning appears during installation, in the module configuration and (for superusers) on the pages under **Setup > Email Log**.
 
-## Konfiguration
+## Configuration
 
 **Modules > Configure > EmailService**
 
-| Option | Standard | Beschreibung |
-|--------|----------|--------------|
-| Template-Pfad | `site/templates/email/` | Verzeichnis der E-Mail-Templates, relativ zum ProcessWire-Root. Ein führender `/` ist erlaubt, `..` wird entfernt. So können die Templates auch außerhalb von `/site/templates/` liegen, z. B. `site/mail/`. |
-| Wrapper-Datei | `wrapper.php` | Layout für alle E-Mails. Leer = kein Wrapper. |
-| CSS-Datei | `wrapper.css` | CSS, das inline gesetzt wird. Leer = kein CSS. |
-| Standard-Absender | – | Fallback: `$config->adminEmail` |
-| Absender-Name | – | Name des Absenders |
-| Log-Aufbewahrung | `90` | Einträge älter als X Tage werden täglich gelöscht, `0` = unbegrenzt |
+| Option | Default | Description |
+|--------|---------|-------------|
+| Template path | `site/templates/email/` | Directory of the email templates, relative to the ProcessWire root. A leading `/` is allowed, `..` is removed. This way templates can also live outside `/site/templates/`, e.g. `site/mail/`. |
+| Wrapper file | `wrapper.php` | Layout for all emails. Empty = no wrapper. |
+| CSS file | `wrapper.css` | CSS that is inlined. Empty = no CSS. |
+| Default sender | – | Fallback: `$config->adminEmail` |
+| Sender name | – | Name of the sender |
+| Log retention | `90` | Entries older than X days are deleted daily, `0` = unlimited |
 
-Das Konfigurationsfeld zeigt den aufgelösten Template-Pfad an und warnt, wenn das Verzeichnis fehlt.
+The configuration shows the resolved template path and warns if the directory is missing. The form is defined in `EmailServiceConfig.php` (ProcessWire's `ModuleConfig` convention).
 
 ## Templates
 
-Fertige Beispiele liegen in [`examples/email/`](examples/email/). Für den Einstieg einfach nach `/site/templates/email/` kopieren:
+Ready-made examples are in [`examples/email/`](examples/email/). To get started, copy them to `/site/templates/email/`:
 
 ```bash
 cp -R site/modules/EmailService/examples/email site/templates/email
@@ -78,19 +78,20 @@ cp -R site/modules/EmailService/examples/email site/templates/email
 
 ```
 site/templates/email/
-├── wrapper.php              Layout (Header, Footer)
-├── wrapper.css              wird inline gesetzt
+├── wrapper.php              Layout (header, footer)
+├── wrapper.txt.php          Layout for text emails (optional, e.g. signature)
+├── wrapper.css              gets inlined
 ├── welcome.php              Template "welcome" (HTML)
-├── welcome.txt.php          Template "welcome" (Text, optional)
+├── welcome.txt.php          Template "welcome" (text, optional)
 └── password-reset.php       Template "password-reset"
 ```
 
-- Der Template-Name entspricht dem Dateinamen ohne `.php`. Unterordner werden mit `/` angegeben: Für `'template' => 'shop/order'` wird `site/templates/email/shop/order.php` geladen.
-- Templates sind normale ProcessWire-`TemplateFile`s. `$pages`, `$config`, `$sanitizer`, `$user` usw. stehen zur Verfügung, dazu alle Werte aus `data`.
-- `$subject` wird von `send()` automatisch an Template und Wrapper übergeben.
-- Liegt neben `name.php` eine `name.txt.php`, wird sie als Text-Teil verwendet. Sonst erzeugt das Modul den Text-Teil aus dem HTML.
+- The template name is the file name without `.php`. Subdirectories are separated with `/`: `'template' => 'shop/order'` loads `site/templates/email/shop/order.php`.
+- Templates are regular ProcessWire `TemplateFile`s. `$pages`, `$config`, `$sanitizer`, `$user` etc. are available, plus all values from `data`.
+- `send()` passes `$subject` to the template and the wrapper automatically.
+- If there is a `name.txt.php` next to `name.php`, it is used as the text part. Otherwise the module generates the text part from the HTML.
 
-### Content-Template
+### Content template
 
 ```php
 <?php namespace ProcessWire;
@@ -100,21 +101,21 @@ site/templates/email/
  * @var string $loginUrl
  */
 ?>
-<h1>Willkommen, <?= $sanitizer->entities($userName) ?>!</h1>
+<h1>Welcome, <?= $sanitizer->entities($userName) ?>!</h1>
 
-<p><a class="button" href="<?= $sanitizer->entities($loginUrl) ?>">Jetzt anmelden</a></p>
+<p><a class="button" href="<?= $sanitizer->entities($loginUrl) ?>">Sign in now</a></p>
 ```
 
 ### Wrapper
 
-Der Wrapper erhält alle Template-Daten und zusätzlich `$content` mit dem gerenderten Content-Template:
+The wrapper receives all template data plus `$content` with the rendered content template:
 
 ```php
 <?php namespace ProcessWire;
 
 /**
- * @var string $content Gerenderter Template-Inhalt
- * @var string $subject E-Mail-Betreff
+ * @var string $content Rendered template content
+ * @var string $subject Email subject
  */
 ?>
 <!DOCTYPE html>
@@ -132,47 +133,63 @@ Der Wrapper erhält alle Template-Daten und zusätzlich `$content` mit dem geren
 </html>
 ```
 
-Das vollständige Beispiel mit Preheader und tabellenbasiertem Layout steht in [`examples/email/wrapper.php`](examples/email/wrapper.php).
+The complete example with preheader and table-based layout is [`examples/email/wrapper.php`](examples/email/wrapper.php).
 
-## Verwendung
+### Text wrapper
 
-### E-Mail senden
+Optionally there is a wrapper for the text part, e.g. for a signature with the sender address. Its name follows the **Wrapper file** setting: `wrapper.php` → `wrapper.txt.php`. It receives the same data as the HTML wrapper, `$content` is the text of the `.txt.php` template.
+
+```php
+<?= $content ?>
+
+
+-- 
+Example Ltd.
+1 Example Street, 12345 Example City
+<?= $config->urls->httpRoot ?>
+```
+
+The text wrapper is only used for templates with a `.txt.php` version. Text generated from the HTML already contains the HTML wrapper. Example: [`examples/email/wrapper.txt.php`](examples/email/wrapper.txt.php).
+
+## Usage
+
+### Sending an email
 
 ```php
 /** @var EmailService $emailService */
 $emailService = $modules->get('EmailService');
 
 $sent = $emailService->send([
-	'to' => 'empfaenger@example.com',
-	'subject' => 'Willkommen!',
+	'to' => 'recipient@example.com',
+	'subject' => 'Welcome!',
 	'template' => 'welcome',
 	'data' => [
-		'userName' => 'Max Mustermann',
+		'userName' => 'Jane Doe',
 		'loginUrl' => $pages->get('/login/')->httpUrl,
-		'user' => $userPage, // Objekte sind möglich
+		'user' => $userPage, // objects are possible
 	],
 ]);
 ```
 
-`send()` gibt `false` zurück, wenn `to` oder `template` fehlen, die Template-Datei nicht existiert oder der Versand fehlschlägt. Fehlende Templates werden im Log `email-service` vermerkt.
+`send()` returns `false` if `to` or `template` is missing, the template file does not exist or sending fails. Missing templates are noted in the `email-service` log.
 
-### send()-Optionen
+### send() options
 
-| Option | Typ | Beschreibung |
-|--------|-----|--------------|
-| `to` | string | Empfänger (erforderlich) |
-| `template` | string | Template-Name ohne `.php` (erforderlich) |
-| `subject` | string | Betreff, steht im Template als `$subject` zur Verfügung |
-| `data` | array | Daten für Template und Wrapper |
-| `from` | string | Absender, Fallback: Konfiguration bzw. `$config->adminEmail` |
-| `fromName` | string | Absender-Name |
-| `cc` | string\|array | CC-Empfänger, kommagetrennt oder als Array. Ungültige Adressen werden verworfen. |
-| `bcc` | string\|array | BCC-Empfänger, wie `cc` |
-| `language` | Language\|int\|string | Sprache (Objekt, ID oder Name), in der gerendert wird. Standard: aktuelle Benutzersprache |
+| Option | Type | Description |
+|--------|------|-------------|
+| `to` | string | Recipient (required) |
+| `template` | string | Template name without `.php` (required) |
+| `subject` | string | Subject, available in the template as `$subject` |
+| `data` | array | Data for template and wrapper |
+| `from` | string | Sender, fallback: configuration or `$config->adminEmail` |
+| `fromName` | string | Sender name |
+| `cc` | string\|array | CC recipients, comma-separated or as array. Invalid addresses are dropped. |
+| `bcc` | string\|array | BCC recipients, like `cc` |
+| `language` | Language\|int\|string | Language (object, ID or name) to render in. Default: current user language |
 
-`cc`/`bcc` nutzen `$mail->cc()`/`bcc()`, wenn das Mail-Modul sie anbietet (z. B. WireMailSmtp), sonst den jeweiligen Header.
+`cc`/`bcc` use `$mail->cc()`/`bcc()` if the mail module provides them (e.g. WireMailSmtp), otherwise the respective header.
 
-### Nur rendern (ohne Versand)
+### Render only (without sending)
 
 ```php
 $html = $emailService->render('password-reset', [
@@ -180,25 +197,25 @@ $html = $emailService->render('password-reset', [
 	'code' => '123456',
 ]);
 
-$text = $emailService->renderText('password-reset', [...]); // '' wenn keine .txt.php existiert
+$text = $emailService->renderText('password-reset', [...]); // '' if there is no .txt.php
 ```
 
-Das ist praktisch, wenn ein anderes Modul den Versand selbst übernimmt und nur das Layout von EmailService nutzen soll.
+This is useful when another module does the sending itself and only uses the layout of EmailService.
 
-## Mehrsprachigkeit
+## Multi-language
 
-Mit installiertem **LanguageSupport** rendern `render()`, `renderText()`, `renderTextBody()` und `send()` in der übergebenen Sprache. Währenddessen wird die Benutzersprache umgeschaltet und danach wiederhergestellt, auch bei Exceptions. Dadurch liefern `__()`, `_x()` und mehrsprachige Felder in Templates und Wrapper die richtige Sprache.
+With **LanguageSupport** installed, `render()`, `renderText()`, `renderTextBody()` and `send()` render in the given language. The user language is switched while rendering and restored afterwards, also on exceptions. This way `__()`, `_x()` and multi-language fields return the right language in templates and wrapper.
 
 ```php
 $emailService->send([
 	'to' => $recipient->email,
 	'template' => 'welcome',
-	'language' => $recipient->language, // Language, ID oder Name ('de')
+	'language' => $recipient->language, // Language, ID or name ('de')
 	'subject' => '…',
 ]);
 ```
 
-Texte außerhalb der Templates, z. B. den Betreff, übersetzt `withLanguage()` in derselben Sprache:
+`withLanguage()` translates texts outside the templates, e.g. the subject, in the same language:
 
 ```php
 $emailService->withLanguage($recipient->language, fn() => $emailService->send([
@@ -208,24 +225,24 @@ $emailService->withLanguage($recipient->language, fn() => $emailService->send([
 ]));
 ```
 
-- Eine unbekannte Sprache wird geloggt. `send()` gibt dann `false` zurück, `render()` einen leeren String. `resolveLanguage()` und `withLanguage()` werfen eine `WireException`.
-- Ohne LanguageSupport wird `language` ignoriert.
-- Templates werden wie alle Site-Dateien unter **Setup > Languages > Sprache > Site-Dateien** übersetzt. Die Beispiel-Templates verwenden englische Quelltexte. Deutsche Übersetzungen dafür liegen in [`examples/languages/de.csv`](examples/languages/de.csv).
-- `__()` gibt Übersetzungen HTML-kodiert zurück. In `.txt.php`-Templates deshalb `html_entity_decode()` verwenden, siehe [`examples/email/welcome.txt.php`](examples/email/welcome.txt.php).
+- An unknown language is logged. `send()` then returns `false`, `render()` an empty string. `resolveLanguage()` and `withLanguage()` throw a `WireException`.
+- Without LanguageSupport, `language` is ignored.
+- Templates are translated like all site files under **Setup > Languages > language > Site files**. The example templates use English source strings. German translations for them are in [`examples/languages/de.csv`](examples/languages/de.csv).
+- `__()` returns translations HTML-encoded. Use `html_entity_decode()` in `.txt.php` templates, see [`examples/email/welcome.txt.php`](examples/email/welcome.txt.php).
 
-### Übersetzungen des Moduls
+### Module translations
 
-Die Admin-Oberfläche ist übersetzt ([`languages/de.csv`](languages/de.csv)). Import: **Modules > EmailService**, in der Info-Tabelle unter **Languages** auf „install translations“ klicken, oder per API:
+The admin interface is translated ([`languages/de.csv`](languages/de.csv)). To import: **Modules > EmailService**, click "install translations" under **Languages** in the info table, or via API:
 
 ```php
 $languages->importTranslationsFile('de', $config->paths->EmailService . 'languages/de.csv');
 ```
 
-Den übersetzten Seitentitel („E-Mail Logs“) setzt `ProcessEmailLog` bei Installation und Upgrade für jede Sprache, die noch keinen Titel hat. Nachträglich: `$modules->get('ProcessEmailLog')->translatePageTitle()`.
+`ProcessEmailLog` sets the translated page title ("E-Mail Logs" in German) on installation and upgrade for every language that has no title yet. Afterwards: `$modules->get('ProcessEmailLog')->translatePageTitle()`.
 
-## Templates für die Vorschau registrieren
+## Registering templates for the preview
 
-Damit Templates unter **Setup > Email Log > Vorschau** erscheinen, werden sie mit Beispieldaten registriert. Das geht in `/site/ready.php` oder in der `ready()`-Methode eines eigenen Moduls:
+To appear under **Setup > Email Log > Preview**, templates are registered with sample data. This can be done in `/site/ready.php` or in the `ready()` method of your own module:
 
 ```php
 $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event) {
@@ -233,11 +250,11 @@ $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event
 	$service = $event->object;
 
 	$service->registerTemplate('welcome', __('Welcome email'), [
-		'userName' => 'Max Mustermann',
+		'userName' => 'Jane Doe',
 		'loginUrl' => 'https://example.com/login/',
 	]);
 
-	// Closure: wird in der Vorschausprache aufgerufen, __() liefert also die passende Übersetzung
+	// closure: called in the preview language, so __() returns the matching translation
 	$service->registerTemplate('password-reset', __('Password reset'), fn() => [
 		'subject' => __('Reset your password'),
 		'code' => '123456',
@@ -245,54 +262,54 @@ $wire->addHookAfter('EmailService::registerTemplates', function(HookEvent $event
 });
 ```
 
-In der Vorschau lassen sich Größe (Phone/Tablet/Desktop), Format (HTML/Text) und Sprache umschalten. Die Einstellungen stehen in der URL und bleiben beim Wechsel des Templates erhalten. So lassen sich alle Varianten schnell nacheinander prüfen. Hat ein Template keine `.txt.php`, zeigt die Text-Ansicht den aus dem HTML erzeugten Text, also genau das, was `send()` verschickt.
+In the preview you can switch the size (phone/tablet/desktop), the format (HTML/text) and the language. The settings are kept in the URL and stay when switching templates, so all variants can be checked quickly one after another. If a template has no `.txt.php`, the text view shows the text generated from the HTML, exactly what `send()` sends.
 
-Weitere Beispiele stehen in [`examples/ready.php`](examples/ready.php).
+More examples are in [`examples/ready.php`](examples/ready.php).
 
 ## Log
 
-Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absender, Betreff, Template, Sprache, HTML, Text, Status (`sent`/`failed`) und Zeitpunkt.
+Every email is stored in the table `email_log`, with recipient, sender, subject, template, language, HTML, text, status (`sent`/`failed`) and time.
 
-- **Über `send()`:** Diese E-Mails werden mit Template-Namen und dem Namen der Sprache geloggt, in der sie gerendert wurden (Option `language`, sonst die aktuelle Sprache). **Erneut senden** übernimmt die Sprache des ursprünglichen Eintrags.
-- **Direkt über `WireMail`:** Mails von anderen Modulen, z. B. ProcessForgotPassword, werden per Hook ebenfalls geloggt, aber ohne Template-Namen und ohne Sprache. Über den Hook `EmailService::detectTemplate` lässt sich einer zuordnen:
+- **Via `send()`:** these emails are logged with the template name and the name of the language they were rendered in (option `language`, otherwise the current language). **Resend** keeps the language of the original entry.
+- **Directly via `WireMail`:** mails from other modules, e.g. ProcessForgotPassword, are logged by a hook as well, but without template name and language. The hook `EmailService::detectTemplate` can assign a template:
 
   ```php
   $wire->addHookAfter('EmailService::detectTemplate', function(HookEvent $event) {
   	/** @var WireMail $mail */
   	$mail = $event->arguments(0);
-  	if (str_contains((string) $mail->subject, 'Passwort')) {
+  	if (str_contains((string) $mail->subject, 'Password')) {
   		$event->return = 'password-reset';
   	}
   });
   ```
 
-- **Aufräumen:** Einträge älter als **Log-Aufbewahrung** Tage werden täglich gelöscht. Ist ProcessCronJobs installiert, läuft das als Job `EmailServiceCleanup`, sonst über den Core-`LazyCron` (Hook `LazyCron::everyDay`). LazyCron muss dafür installiert sein und wird durch Seitenaufrufe ausgelöst, auf Seiten ohne Besucher läuft das Aufräumen also verzögert. Ist keins von beiden installiert, wird nichts automatisch gelöscht. Darauf weist auch die Modul-Konfiguration hin.
-- **Fehler:** Fehler und Hinweise stehen unter **Setup > Logs > email-service**.
+- **Cleanup:** entries older than **Log retention** days are deleted daily. If ProcessCronJobs is installed, this runs as job `EmailServiceCleanup`, otherwise via the core `LazyCron` (hook `LazyCron::everyDay`). LazyCron must be installed for that and is triggered by page views, so on sites without visitors the cleanup runs late. If neither is installed, nothing is deleted automatically. The module configuration points this out as well.
+- **Errors:** errors and notices are logged under **Setup > Logs > email-service**.
 
-### Admin-Seite (ProcessEmailLog)
+### Admin page (ProcessEmailLog)
 
-**Setup > Email Log** benötigt die Permission `email-log-view`.
+**Setup > Email Log** requires the permission `email-log-view`.
 
-- Liste aller E-Mails, filterbar nach Status und Template, mit Pagination und, bei mehreren Sprachen, einer Spalte für die Sprache
-- Detailansicht mit allen Daten inkl. Sprache, der E-Mail als HTML oder Text in Phone-, Tablet- und Desktop-Breite und **Erneut senden**
-- Löschen einzelner Einträge in der Detailansicht sowie aller bzw. der gefilterten Einträge in der Liste (nur Superuser)
-- Vorschau registrierter Templates mit Beispieldaten in Phone-, Tablet- und Desktop-Breite, als HTML und als Text, in allen Sprachen
+- List of all emails, filterable by status and template, with pagination and, with several languages, a language column
+- Detail view with all data incl. language, the email as HTML or text in phone, tablet and desktop width, and **Resend**
+- Deleting single entries in the detail view and all or the filtered entries in the list (superusers only)
+- Preview of registered templates with sample data in phone, tablet and desktop width, as HTML and as text, in all languages
 
-## Namen
+## Names
 
-| Was | Name |
-|-----|------|
-| Module | `EmailService`, `ProcessEmailLog` |
-| DB-Tabelle | `email_log` (`EmailService::logTable`) |
-| Log-Datei | `email-service` (`EmailService::logName`) |
-| Cron-Job | `EmailServiceCleanup` (`EmailService::cleanupJob`) |
+| What | Name |
+|------|------|
+| Modules | `EmailService`, `ProcessEmailLog` |
+| DB table | `email_log` (`EmailService::logTable`) |
+| Log file | `email-service` (`EmailService::logName`) |
+| Cron job | `EmailServiceCleanup` (`EmailService::cleanupJob`) |
 | Permission | `email-log-view` |
-| Admin-Seite | `setup/email-log` |
+| Admin page | `setup/email-log` |
 | Hooks | `EmailService::registerTemplates`, `EmailService::detectTemplate` |
 
 ## Tests
 
-Integrationstests mit PHPUnit. Sie booten die ProcessWire-Installation, in der das Modul liegt (oder die aus `PW_ROOT`). Voraussetzung: EmailService ist installiert, die Tabelle `email_log` ist InnoDB.
+Integration tests with PHPUnit. They boot the ProcessWire installation the module is in (or the one in `PW_ROOT`). Requirements: EmailService is installed, the table `email_log` is InnoDB.
 
 ```bash
 cd site/modules/EmailService
@@ -300,21 +317,21 @@ composer install
 vendor/bin/phpunit
 ```
 
-- Jeder Test läuft in einer Datenbank-Transaktion, die danach zurückgerollt wird.
-- `WireMail::send` wird abgefangen. Es wird **keine** E-Mail verschickt.
-- Einträge ins Log `email-service` werden abgefangen, die Log-Datei bleibt unverändert.
-- Templates kommen aus `tests/fixtures/templates/email/` (Template-Pfad relativ zum Root), nicht aus `/site/templates/email/`.
-- Sprach-Tests laufen nur mit mindestens zwei Sprachen, Übersetzungs-Tests nur nach dem Import von `languages/de.csv`. Sonst werden sie übersprungen.
-- Die Reihenfolge ist zufällig (`executionOrder="random"`), damit Abhängigkeiten zwischen Tests auffallen.
+- Every test runs in a database transaction that is rolled back afterwards.
+- `WireMail::send` is intercepted. **No** email is sent.
+- Entries to the `email-service` log are intercepted, the log file stays unchanged.
+- Templates come from `tests/fixtures/templates/email/` (template path relative to the root), not from `/site/templates/email/`.
+- Language tests only run with at least two languages, translation tests only after importing `languages/de.csv`. Otherwise they are skipped.
+- The order is random (`executionOrder="random"`), so dependencies between tests show up.
 
 ## Upgrade
 
-Beim Aktualisieren der Moduldateien führt ProcessWire `___upgrade()` automatisch aus (Modules > Refresh):
+When the module files are updated, ProcessWire runs `___upgrade()` automatically (Modules > Refresh):
 
-- **< 2.1.0:** `ProcessEmailLog` wird nachinstalliert, falls es fehlt.
-- **2.6.0:** Die Option **Composer-Autoload-Datei** entfällt, das Upgrade entfernt den gespeicherten Wert. Emogrifier wird nur noch aus dem Autoloader des Projekts oder aus dem `vendor/` des Moduls geladen, nicht mehr aus `site/vendor/` oder einem übergeordneten Verzeichnis.
-- **2.5.0:** Der Template-Pfad ist jetzt relativ zum ProcessWire-Root statt zu `/site/templates/`. Das Upgrade stellt einen gespeicherten Wert um, z. B. `email/` → `site/templates/email/`. Die Felder der Modul-Konfiguration sind immer geöffnet.
-- **< 2.2.0:** Ein bisheriger root-relativer Template-Pfad wie `/site/templates/email/` wird auf `email/` umgestellt. Der alte Wert würde aber auch ohne Umstellung weiterhin aufgelöst.
-- **2.3.0 / ProcessEmailLog 1.1.0:** Mehrsprachigkeit. `registerTemplate()` akzeptiert eine Closure als Beispieldaten. Die Seite „Email Log“ bekommt übersetzte Titel. Rückwärtskompatibel: Ohne `language` wird wie bisher in der aktuellen Sprache gerendert.
-- **2.4.0 / ProcessEmailLog 1.2.0:** Die Log-Tabelle bekommt die Spalte `language`. Bestehende Einträge behalten eine leere Sprache. Übersicht und Detailansicht haben das Layout der Vorschau. Hinweis: `ALTER TABLE` beendet in MySQL eine laufende Transaktion, das Upgrade daher nicht innerhalb einer Transaktion auslösen.
-- **2.2.0:** Die fest eingebaute Zuordnung der ProcessForgotPassword-Mail (`ProcessUserPage::passwordResetSubject`) entfällt. Wer sie braucht, nutzt den Hook `EmailService::detectTemplate` (s. o.).
+- **2.7.0:** Optional text wrapper `wrapper.txt.php` for `.txt.php` templates. Without this file nothing changes.
+- **2.6.0:** The option **Composer autoload file** is gone, the upgrade removes the stored value. Emogrifier is only loaded from the project autoloader or from the module's `vendor/`, no longer from `site/vendor/` or a parent directory.
+- **2.5.0:** The template path is now relative to the ProcessWire root instead of `/site/templates/`. The upgrade converts a stored value, e.g. `email/` → `site/templates/email/`. The fields of the module configuration are always open.
+- **2.4.0 / ProcessEmailLog 1.2.0:** The log table gets the column `language`. Existing entries keep an empty language. Overview and detail view use the layout of the preview. Note: `ALTER TABLE` ends a running transaction in MySQL, so don't trigger the upgrade inside a transaction.
+- **2.3.0 / ProcessEmailLog 1.1.0:** Multi-language. `registerTemplate()` accepts a closure as sample data. The "Email Log" page gets translated titles. Backwards compatible: without `language`, rendering happens in the current language as before.
+- **2.2.0:** The built-in mapping of the ProcessForgotPassword mail (`ProcessUserPage::passwordResetSubject`) is gone. Use the hook `EmailService::detectTemplate` (see above) if you need it. A root-relative template path like `/site/templates/email/` was converted to `email/`.
+- **< 2.1.0:** `ProcessEmailLog` is installed if it is missing.
