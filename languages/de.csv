@@ -6,7 +6,7 @@ en,de,description,file,hash
 "pelago/emogrifier is available (loaded from %s).","pelago/emogrifier ist verfügbar (geladen aus %s).",,site/modules/EmailService/EmailService.module,ac94ca79569ec4b2a8a9e9f5aaa5e95c
 "Email template directory %s does not exist yet. Examples: %s","Das E-Mail-Template-Verzeichnis %s existiert noch nicht. Beispiele: %s",,site/modules/EmailService/EmailService.module,04b5c99b9b4b74b52e092f932d55ef2b
 "Template path",Template-Pfad,,site/modules/EmailService/EmailService.module,340d202a9ca757725f373ab8a9e8fdc0
-"Directory of the email templates, relative to %s","Verzeichnis der E-Mail-Templates, relativ zu %s",,site/modules/EmailService/EmailService.module,1bbc335110dfa9c96993b3d2e87d4f01
+"Directory of the email templates, relative to the ProcessWire root, e.g. site/templates/email/","Verzeichnis der E-Mail-Templates, relativ zum ProcessWire-Root, z. B. site/templates/email/",,site/modules/EmailService/EmailService.module,69bbf5ff6cc393499a7cd8d7a8ce3719
 "Resolved: %s","Aufgelöst: %s",,site/modules/EmailService/EmailService.module,9b8a37d0c431aafc53d98aefeca27abf
 "Directory %s does not exist.","Verzeichnis %s existiert nicht.",,site/modules/EmailService/EmailService.module,aac68a9be719a2066ef0e4ec57bf263b
 "Wrapper file",Wrapper-Datei,,site/modules/EmailService/EmailService.module,fe39f07b6b55f0d45a48a56be7bc5216

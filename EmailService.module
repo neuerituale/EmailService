@@ -24,7 +24,7 @@ use Pelago\Emogrifier\CssInliner;
  * @method void registerTemplates()
  * @method string detectTemplate(WireMail $mail)
  *
- * @property string $templatePath Directory of the email templates, relative to /site/templates/
+ * @property string $templatePath Directory of the email templates, relative to the ProcessWire root
  * @property string $wrapperFile
  * @property string $cssFile
  * @property string $defaultFrom
@@ -68,7 +68,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '2.4.0',
+			'version' => '2.5.0',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -84,7 +84,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 */
 	public function getDefaults(): array {
 		return [
-			'templatePath' => 'email/',
+			'templatePath' => 'site/templates/email/',
 			'wrapperFile' => 'wrapper.php',
 			'cssFile' => 'wrapper.css',
 			'defaultFrom' => '',
@@ -122,11 +122,10 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	public function init(): void {
 		$this->addHookAfter('WireMail::send', $this, 'hookWireMailSend');
 
-		$modules = $this->wire('modules');
-		if (!$modules->isInstalled('ProcessCronJobs') && $modules->isInstalled('LazyCron')) {
-			$this->addHookAfter('LazyCron::everyDay', function() {
-				$this->pruneLogEntries();
-			});
+		// cleanup via LazyCron if ProcessCronJobs is not installed (which runs it itself);
+		// the hook only fires if LazyCron is installed
+		if (!$this->wire('modules')->isInstalled('ProcessCronJobs')) {
+			$this->addHookAfter('LazyCron::everyDay', $this, 'pruneLogEntries');
 		}
 	}
 
@@ -352,37 +351,75 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Get the absolute path to the email template directory.
 	 *
-	 * The configured path is relative to /site/templates/. For backwards
-	 * compatibility a root-relative value like "/site/templates/email/" is accepted.
+	 * The configured path is relative to the ProcessWire root (e.g. "site/templates/email/"),
+	 * so templates can also live outside /site/templates/. A leading slash is allowed.
 	 *
 	 * @return string Absolute path with trailing slash
 	 * @throws WireException
 	 */
 	public function getTemplatePath(): string {
-		return $this->wire('config')->paths->templates . $this->normalizeTemplatePath((string) $this->templatePath);
+		return $this->wire('config')->paths->root . $this->normalizeTemplatePath((string) $this->templatePath);
 	}
 
 	/**
-	 * Normalize a configured template path to a path relative to /site/templates/.
+	 * Normalize a configured template path to a path relative to the ProcessWire root.
+	 *
+	 * Accepts "site/templates/email", "/site/templates/email/" and the absolute
+	 * file system path of a directory inside the root.
 	 *
 	 * @param string $path
-	 * @return string Relative path with trailing slash, or '' for the templates directory itself
+	 * @return string Relative path with trailing slash, or '' for the root itself
+	 * @throws WireException
 	 */
 	protected function normalizeTemplatePath(string $path): string {
-		$templatesUrl = $this->wire('config')->urls->templates; // e.g. /site/templates/
-		$rootUrl = $this->wire('config')->urls->root;
+		$rootPath = $this->wire('config')->paths->root; // e.g. /var/www/html/
+		$path = str_replace('\\', '/', trim($path));
+		if ($rootPath !== '/' && str_starts_with($path, $rootPath)) {
+			$path = substr($path, strlen($rootPath));
+		}
+		return $this->normalizeRelativePath($path);
+	}
+
+	/**
+	 * Normalize a relative path: forward slashes, no empty, "." or ".." segments.
+	 *
+	 * @param string $path
+	 * @return string Path with trailing slash, or '' if nothing is left
+	 */
+	protected function normalizeRelativePath(string $path): string {
+		$path = str_replace('\\', '/', trim($path));
+		// no traversal out of the base directory
+		$parts = array_filter(explode('/', $path), fn($part) => $part !== '' && $part !== '.' && $part !== '..');
+		return count($parts) ? implode('/', $parts) . '/' : '';
+	}
+
+	/**
+	 * Convert a template path of a version before 2.5.0 to a root-relative path.
+	 *
+	 * Before 2.5.0 the path was relative to /site/templates/ ("email/"), before 2.2.0
+	 * relative to the root with leading slash ("/site/templates/email/").
+	 *
+	 * @param string $path
+	 * @return string Root-relative path
+	 * @throws WireException
+	 */
+	protected function migrateTemplatePath(string $path): string {
+		$config = $this->wire('config');
+		$templatesUrl = $config->urls->templates; // e.g. /site/templates/
 		$path = str_replace('\\', '/', trim($path));
 
-		foreach ([$templatesUrl, '/' . ltrim(substr($templatesUrl, strlen($rootUrl)), '/')] as $prefix) {
+		// < 2.2.0: "/site/templates/email/" (also without a subdirectory install prefix)
+		foreach ([$templatesUrl, '/' . ltrim(substr($templatesUrl, strlen($config->urls->root)), '/')] as $prefix) {
 			if ($prefix !== '/' && str_starts_with($path, $prefix)) {
 				$path = substr($path, strlen($prefix));
 				break;
 			}
 		}
 
-		// no traversal out of the templates directory
-		$parts = array_filter(explode('/', $path), fn($part) => $part !== '' && $part !== '.' && $part !== '..');
-		return count($parts) ? implode('/', $parts) . '/' : '';
+		$absolute = $config->paths->templates . $this->normalizeRelativePath($path);
+		return str_starts_with($absolute, $config->paths->root)
+			? $this->normalizeRelativePath(substr($absolute, strlen($config->paths->root)))
+			: $absolute;
 	}
 
 	/* ***** Dependencies *** */
@@ -736,7 +773,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 * @throws WireException
 	 */
 	protected function getTemplateFile(string $template, string $suffix): string {
-		$name = $this->normalizeTemplatePath($template);
+		$name = $this->normalizeRelativePath($template);
 		if ($name === '') return '';
 		$file = $this->getTemplatePath() . rtrim($name, '/') . $suffix;
 		return is_file($file) ? $file : '';
@@ -926,14 +963,17 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			$this->message('Installed ProcessEmailLog');
 		}
 
-		// < 2.2.0: templatePath was relative to the root (e.g. "/site/templates/email/")
+		// < 2.5.0: templatePath was relative to /site/templates/ (< 2.2.0: "/site/templates/email/"),
+		// now it is relative to the root
+		$from = $modules->formatVersion($fromVersion);
 		$data = $modules->getConfig($this);
-		if (isset($data['templatePath'])) {
-			$normalized = $this->normalizeTemplatePath((string) $data['templatePath']);
-			if ($normalized !== $data['templatePath']) {
-				$data['templatePath'] = $normalized;
+		if (version_compare($from, '2.5.0', '<') && isset($data['templatePath'])) {
+			$migrated = $this->migrateTemplatePath((string) $data['templatePath']);
+			if ($migrated !== $data['templatePath']) {
+				$data['templatePath'] = $migrated;
 				$modules->saveConfig($this, $data);
-				$this->message("EmailService: templatePath migrated to '$normalized'");
+				$this->set('templatePath', $migrated);
+				$this->message("EmailService: templatePath migrated to '$migrated'");
 			}
 		}
 	}
@@ -1004,7 +1044,6 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields): InputfieldWrapper {
 		$modules = $this->wire('modules');
-		$config = $this->wire('config');
 
 		foreach ($this->getDependencyWarnings() as $warning) {
 			$this->warning($warning);
@@ -1016,10 +1055,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		$f = $modules->get('InputfieldText');
 		$f->name = 'templatePath';
 		$f->label = $this->_('Template path');
-		$f->description = sprintf(
-			$this->_('Directory of the email templates, relative to %s'),
-			$config->urls->templates
-		);
+		$f->description = $this->_('Directory of the email templates, relative to the ProcessWire root, e.g. site/templates/email/');
 		$f->notes = is_dir($templatePath)
 			? sprintf($this->_('Resolved: %s'), $templatePath)
 			: sprintf($this->_('Directory %s does not exist.'), $templatePath);
@@ -1086,11 +1122,14 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		$f->description = $this->_('Optional path to a vendor/autoload.php that provides pelago/emogrifier (absolute or relative to the root). Leave empty for automatic lookup.');
 		$f->notes = $this->getInlinerStatus();
 		$f->value = $this->autoloadFile;
-		$f->collapsed = $this->hasInliner() && !$this->autoloadFile
-			? Inputfield::collapsedYes
-			: Inputfield::collapsedNo;
 		$f->columnWidth = 50;
 		$inputfields->add($f);
+
+		// the settings are always open, without collapse toggle
+		foreach (array_keys($this->getDefaults()) as $name) {
+			$field = $inputfields->getChildByName($name);
+			if ($field) $field->collapsed = Inputfield::collapsedNever;
+		}
 
 		return $inputfields;
 	}

@@ -64,7 +64,7 @@ Fehlt Emogrifier oder existiert eine konfigurierte Autoload-Datei nicht, erschei
 
 | Option | Standard | Beschreibung |
 |--------|----------|--------------|
-| Template-Pfad | `email/` | Verzeichnis der E-Mail-Templates, relativ zu `/site/templates/`. Unterordner sind möglich (`mail/de/`). |
+| Template-Pfad | `site/templates/email/` | Verzeichnis der E-Mail-Templates, relativ zum ProcessWire-Root. Ein führender `/` ist erlaubt, `..` wird entfernt. So können die Templates auch außerhalb von `/site/templates/` liegen, z. B. `site/mail/`. |
 | Wrapper-Datei | `wrapper.php` | Layout für alle E-Mails. Leer = kein Wrapper. |
 | CSS-Datei | `wrapper.css` | CSS, das inline gesetzt wird. Leer = kein CSS. |
 | Standard-Absender | – | Fallback: `$config->adminEmail` |
@@ -91,7 +91,7 @@ site/templates/email/
 └── password-reset.php       Template "password-reset"
 ```
 
-- Der Template-Name entspricht dem Dateinamen ohne `.php`. Unterordner werden mit `/` angegeben: Für `'template' => 'shop/order'` wird `email/shop/order.php` geladen.
+- Der Template-Name entspricht dem Dateinamen ohne `.php`. Unterordner werden mit `/` angegeben: Für `'template' => 'shop/order'` wird `site/templates/email/shop/order.php` geladen.
 - Templates sind normale ProcessWire-`TemplateFile`s. `$pages`, `$config`, `$sanitizer`, `$user` usw. stehen zur Verfügung, dazu alle Werte aus `data`.
 - `$subject` wird von `send()` automatisch an Template und Wrapper übergeben.
 - Liegt neben `name.php` eine `name.txt.php`, wird sie als Text-Teil verwendet. Sonst erzeugt das Modul den Text-Teil aus dem HTML.
@@ -272,7 +272,7 @@ Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absende
   });
   ```
 
-- **Aufräumen:** Einträge älter als **Log-Aufbewahrung** Tage werden täglich gelöscht. Ist ProcessCronJobs installiert, läuft das als Job `EmailServiceCleanup`, sonst über den Core-`LazyCron`. Ist keins von beiden installiert, wird nichts automatisch gelöscht. Darauf weist auch die Modul-Konfiguration hin.
+- **Aufräumen:** Einträge älter als **Log-Aufbewahrung** Tage werden täglich gelöscht. Ist ProcessCronJobs installiert, läuft das als Job `EmailServiceCleanup`, sonst über den Core-`LazyCron` (Hook `LazyCron::everyDay`). LazyCron muss dafür installiert sein und wird durch Seitenaufrufe ausgelöst, auf Seiten ohne Besucher läuft das Aufräumen also verzögert. Ist keins von beiden installiert, wird nichts automatisch gelöscht. Darauf weist auch die Modul-Konfiguration hin.
 - **Fehler:** Fehler und Hinweise stehen unter **Setup > Logs > email-service**.
 
 ### Admin-Seite (ProcessEmailLog)
@@ -309,7 +309,7 @@ vendor/bin/phpunit
 - Jeder Test läuft in einer Datenbank-Transaktion, die danach zurückgerollt wird.
 - `WireMail::send` wird abgefangen. Es wird **keine** E-Mail verschickt.
 - Einträge ins Log `email-service` werden abgefangen, die Log-Datei bleibt unverändert.
-- Templates kommen aus `tests/fixtures/templates/email/`, nicht aus `/site/templates/`.
+- Templates kommen aus `tests/fixtures/templates/email/` (Template-Pfad relativ zum Root), nicht aus `/site/templates/email/`.
 - Sprach-Tests laufen nur mit mindestens zwei Sprachen, Übersetzungs-Tests nur nach dem Import von `languages/de.csv`. Sonst werden sie übersprungen.
 - Die Reihenfolge ist zufällig (`executionOrder="random"`), damit Abhängigkeiten zwischen Tests auffallen.
 
@@ -318,6 +318,7 @@ vendor/bin/phpunit
 Beim Aktualisieren der Moduldateien führt ProcessWire `___upgrade()` automatisch aus (Modules > Refresh):
 
 - **< 2.1.0:** `ProcessEmailLog` wird nachinstalliert, falls es fehlt.
+- **2.5.0:** Der Template-Pfad ist jetzt relativ zum ProcessWire-Root statt zu `/site/templates/`. Das Upgrade stellt einen gespeicherten Wert um, z. B. `email/` → `site/templates/email/`. Die Felder der Modul-Konfiguration sind immer geöffnet.
 - **< 2.2.0:** Ein bisheriger root-relativer Template-Pfad wie `/site/templates/email/` wird auf `email/` umgestellt. Der alte Wert würde aber auch ohne Umstellung weiterhin aufgelöst.
 - **2.3.0 / ProcessEmailLog 1.1.0:** Mehrsprachigkeit. `registerTemplate()` akzeptiert eine Closure als Beispieldaten. Die Seite „Email Log“ bekommt übersetzte Titel. Rückwärtskompatibel: Ohne `language` wird wie bisher in der aktuellen Sprache gerendert.
 - **2.4.0 / ProcessEmailLog 1.2.0:** Die Log-Tabelle bekommt die Spalte `language`. Bestehende Einträge behalten eine leere Sprache. Übersicht und Detailansicht haben das Layout der Vorschau. Hinweis: `ALTER TABLE` beendet in MySQL eine laufende Transaktion, das Upgrade daher nicht innerhalb einer Transaktion auslösen.

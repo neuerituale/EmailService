@@ -65,6 +65,17 @@ abstract class TestCase extends BaseTestCase
 		return __DIR__ . '/fixtures/templates/';
 	}
 
+	/**
+	 * Template path of the fixtures relative to the ProcessWire root (module setting).
+	 */
+	protected function fixturesTemplatePath(): string
+	{
+		$root = $this->wire()->config->paths->root;
+		$path = $this->fixturesPath() . 'email/';
+		$this->assertStringStartsWith($root, $path, 'The fixtures must be inside the ProcessWire root.');
+		return substr($path, strlen($root));
+	}
+
 	protected function setUp(): void
 	{
 		parent::setUp();
@@ -102,7 +113,7 @@ abstract class TestCase extends BaseTestCase
 			$this->savedSettings[$key] = $service->get($key);
 		}
 		$service->setArray([
-			'templatePath' => 'email/',
+			'templatePath' => $this->fixturesTemplatePath(),
 			'wrapperFile' => 'wrapper.php',
 			'cssFile' => 'wrapper.css',
 			'defaultFrom' => 'sender@example.test',

@@ -280,4 +280,27 @@ final class SendTest extends TestCase
 		$this->assertNotContains($old, $ids);
 		$this->assertContains($new, $ids);
 	}
+
+	public function testPruneRunsViaLazyCron(): void
+	{
+		$modules = $this->wire()->modules;
+		if ($modules->isInstalled('ProcessCronJobs')) $this->markTestSkipped('With ProcessCronJobs the cleanup runs as cron job.');
+		// LazyCron doesn't have to be installed: the hook is registered anyway and only fires when LazyCron runs
+		$this->assertTrue($modules->includeModule('LazyCron'), 'LazyCron is a core module.');
+
+		$old = $this->insertLogRow(['to_email' => 'old@phpunit.test', 'created' => time() - 91 * 86400]);
+		$new = $this->insertLogRow(['to_email' => 'new@phpunit.test', 'created' => time() - 89 * 86400]);
+
+		/** @var LazyCron $lazyCron */
+		$lazyCron = $this->wire()->wire(new LazyCron());
+		$lazyCron->everyHour(3600);
+		$this->assertCount(2, $this->logRows(), 'Only the daily run prunes.');
+
+		$lazyCron->everyDay(86400);
+
+		$ids = array_map('intval', array_column($this->logRows(), 'id'));
+		$this->assertNotContains($old, $ids, 'Entries older than retainDays (90) are deleted.');
+		$this->assertContains($new, $ids);
+		$this->assertStringContainsString('older than 90 days', end($this->logLines));
+	}
 }

@@ -92,31 +92,92 @@ final class RegistryAndConfigTest extends TestCase
 
 	public function testNormalizeTemplatePath(): void
 	{
+		$root = $this->wire()->config->paths->root;
 		$cases = [
-			'email/' => 'email/',
-			'email' => 'email/',
-			'/site/templates/email/' => 'email/',
 			'site/templates/email/' => 'site/templates/email/',
+			'site/templates/email' => 'site/templates/email/',
+			'/site/templates/email/' => 'site/templates/email/',
 			'mail/de' => 'mail/de/',
 			'' => '',
 			'/' => '',
-			'  email  ' => 'email/',
+			'  site/mail  ' => 'site/mail/',
 			'../../etc' => 'etc/',
+			'/../../etc/passwd' => 'etc/passwd/',
 			'./a/../b' => 'a/b/',
 			'a\\b' => 'a/b/',
 			'a//b///' => 'a/b/',
+			// absolute path inside the root
+			$root . 'site/templates/email' => 'site/templates/email/',
 		];
 		foreach ($cases as $input => $expected) {
 			$this->assertSame($expected, $this->callMethod($this->service(), 'normalizeTemplatePath', [(string) $input]), "Input: '$input'");
 		}
 	}
 
-	public function testGetTemplatePath(): void
+	public function testGetTemplatePathIsRelativeToRoot(): void
 	{
-		$this->assertSame($this->fixturesPath() . 'email/', $this->service()->getTemplatePath());
+		$service = $this->service();
+		$root = $this->wire()->config->paths->root;
 
-		$this->service()->templatePath = '';
-		$this->assertSame($this->fixturesPath(), $this->service()->getTemplatePath());
+		$this->assertSame($this->fixturesPath() . 'email/', $service->getTemplatePath());
+
+		$service->templatePath = 'site/templates/email/';
+		$this->assertSame($root . 'site/templates/email/', $service->getTemplatePath());
+
+		$service->templatePath = '/site/mail/';
+		$this->assertSame($root . 'site/mail/', $service->getTemplatePath(), 'A leading slash means the root.');
+
+		$service->templatePath = '../../outside/';
+		$this->assertSame($root . 'outside/', $service->getTemplatePath(), 'The path can not leave the root.');
+
+		$service->templatePath = '';
+		$this->assertSame($root, $service->getTemplatePath());
+	}
+
+	public function testDefaultTemplatePath(): void
+	{
+		$this->assertSame('site/templates/email/', $this->service()->getDefaults()['templatePath']);
+	}
+
+	public function testTemplateNamesCanNotLeaveTheTemplatePath(): void
+	{
+		$service = $this->service();
+		$this->assertTrue($service->hasTemplate('basic'));
+		$this->assertTrue($service->hasTemplate('sub/nested'));
+		$this->assertFalse($service->hasTemplate('../outside'), 'outside.php lies one level above the template path.');
+		$this->assertTrue($service->hasTemplate('/basic'));
+	}
+
+	public function testMigrateTemplatePath(): void
+	{
+		$config = $this->wire()->config;
+		$templates = substr($config->paths->templates, strlen($config->paths->root)); // fixtures, relative to the root
+		$templatesUrl = $config->urls->templates;
+		$cases = [
+			// < 2.5.0: relative to /site/templates/
+			'email/' => $templates . 'email/',
+			'email' => $templates . 'email/',
+			'mail/de/' => $templates . 'mail/de/',
+			'' => $templates,
+			'../../etc' => $templates . 'etc/',
+			// < 2.2.0: root-relative with the templates URL
+			$templatesUrl . 'email/' => $templates . 'email/',
+		];
+		foreach ($cases as $input => $expected) {
+			$this->assertSame($expected, $this->callMethod($this->service(), 'migrateTemplatePath', [(string) $input]), "Input: '$input'");
+		}
+	}
+
+	public function testMigratedPathResolvesToTheSameDirectory(): void
+	{
+		$service = $this->service();
+		$config = $this->wire()->config;
+
+		foreach (['email/', 'email', 'sub', $config->urls->templates . 'email/'] as $old) {
+			$expected = $config->paths->templates . $this->callMethod($service, 'normalizeRelativePath', [str_replace($config->urls->templates, '', $old)]);
+			$service->templatePath = $this->callMethod($service, 'migrateTemplatePath', [$old]);
+			$this->assertSame($expected, $service->getTemplatePath(), "Old value: '$old'");
+		}
 	}
 
 	/* ***** Dependencies *** */
@@ -198,6 +259,11 @@ final class RegistryAndConfigTest extends TestCase
 
 		$this->assertNotNull($inputfields->getChildByName('templatePath'));
 		$this->assertNotNull($inputfields->getChildByName('autoloadFile'));
+		foreach (array_keys($service->getDefaults()) as $name) {
+			$field = $inputfields->getChildByName($name);
+			$this->assertNotNull($field, $name);
+			$this->assertSame(Inputfield::collapsedNever, $field->collapsed, "$name can not be collapsed");
+		}
 		$found = false;
 		foreach ($notices as $i => $notice) {
 			if ($i < $before) continue;
@@ -208,7 +274,7 @@ final class RegistryAndConfigTest extends TestCase
 
 	public function testModuleVersions(): void
 	{
-		$this->assertSame('2.4.0', EmailService::getModuleInfo()['version']);
+		$this->assertSame('2.5.0', EmailService::getModuleInfo()['version']);
 		$this->assertSame('1.2.0', ProcessEmailLog::getModuleInfo()['version']);
 	}
 }
