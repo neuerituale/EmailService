@@ -4,25 +4,25 @@ en,de,description,file,hash
 "pelago/emogrifier is available (already loaded).","pelago/emogrifier ist verfügbar (bereits geladen).",,site/modules/EmailService/EmailService.module,65d60050573944faecf59158a7c50d55
 "pelago/emogrifier is available (loaded from %s).","pelago/emogrifier ist verfügbar (geladen aus %s).",,site/modules/EmailService/EmailService.module,ac94ca79569ec4b2a8a9e9f5aaa5e95c
 "Email template directory %s does not exist yet. Examples: %s","Das E-Mail-Template-Verzeichnis %s existiert noch nicht. Beispiele: %s",,site/modules/EmailService/EmailService.module,04b5c99b9b4b74b52e092f932d55ef2b
-"Template path",Template-Pfad,,site/modules/EmailService/EmailService.module,340d202a9ca757725f373ab8a9e8fdc0
-"Directory of the email templates, relative to the ProcessWire root, e.g. site/templates/email/","Verzeichnis der E-Mail-Templates, relativ zum ProcessWire-Root, z. B. site/templates/email/",,site/modules/EmailService/EmailService.module,69bbf5ff6cc393499a7cd8d7a8ce3719
-"Resolved: %s","Aufgelöst: %s",,site/modules/EmailService/EmailService.module,9b8a37d0c431aafc53d98aefeca27abf
-"Directory %s does not exist.","Verzeichnis %s existiert nicht.",,site/modules/EmailService/EmailService.module,aac68a9be719a2066ef0e4ec57bf263b
-"Wrapper file",Wrapper-Datei,,site/modules/EmailService/EmailService.module,fe39f07b6b55f0d45a48a56be7bc5216
-"File name of the HTML wrapper","Dateiname des HTML-Wrappers",,site/modules/EmailService/EmailService.module,1e2e9cb5a1a5fcf6e70bf43c4df70baf
-"Leave empty to send templates without wrapper.","Leer lassen, um Templates ohne Wrapper zu versenden.",,site/modules/EmailService/EmailService.module,8461151b6365680f96922b7d5835000d
-"CSS file",CSS-Datei,,site/modules/EmailService/EmailService.module,1547ffc579d657d13fd5fedf12cbfae5
-"File name for CSS inlining","Dateiname für CSS-Inlining",,site/modules/EmailService/EmailService.module,79c3e85b35c34a1b05c65a5ba8e7dda0
-"Leave empty to disable CSS inlining.","Leer lassen, um CSS-Inlining zu deaktivieren.",,site/modules/EmailService/EmailService.module,bdc87fd86dafaf3b08a8b23c1099197b
-"Default sender (email)","Standard-Absender (E-Mail)",,site/modules/EmailService/EmailService.module,56c4f0fac1ee7d8a2afe8daba941da33
-"Falls back to $config->adminEmail if empty","Falls leer, wird $config->adminEmail verwendet",,site/modules/EmailService/EmailService.module,09a01dd05c16d89fc659b724a72f1c18
-"Sender name",Absender-Name,,site/modules/EmailService/EmailService.module,90ed58883831551ef960da4f7cde1240
-"Log retention (days)","Log-Aufbewahrung (Tage)",,site/modules/EmailService/EmailService.module,22319b0ab6a15f64692dfad311d14159
-"Email log entries older than this number of days are deleted daily. 0 = unlimited.","E-Mail-Log-Einträge älter als diese Anzahl Tage werden täglich gelöscht. 0 = unbegrenzt.",,site/modules/EmailService/EmailService.module,4b56ff9a7264beaa07a29be209890101
-"Runs via ProcessCronJobs.","Läuft über ProcessCronJobs.",,site/modules/EmailService/EmailService.module,bbe4025398640330cb9a5c2d57c6ae02
-"Runs via LazyCron.","Läuft über LazyCron.",,site/modules/EmailService/EmailService.module,cf1102a0bc9cbe551ba977db0a060b6e
-"Neither ProcessCronJobs nor LazyCron is installed, old entries are not deleted automatically.","Weder ProcessCronJobs noch LazyCron ist installiert, alte Einträge werden nicht automatisch gelöscht.",,site/modules/EmailService/EmailService.module,db3670d3297f3a5e77cadb9ca4789491
-"CSS inlining",CSS-Inlining,,site/modules/EmailService/EmailService.module,c522d1ffaf603ba50ae9dbc6b04d31c5
+"Template path",Template-Pfad,,site/modules/EmailService/EmailServiceConfig.php,340d202a9ca757725f373ab8a9e8fdc0
+"Directory of the email templates, relative to the ProcessWire root, e.g. site/templates/email/","Verzeichnis der E-Mail-Templates, relativ zum ProcessWire-Root, z. B. site/templates/email/",,site/modules/EmailService/EmailServiceConfig.php,69bbf5ff6cc393499a7cd8d7a8ce3719
+"Resolved: %s","Aufgelöst: %s",,site/modules/EmailService/EmailServiceConfig.php,9b8a37d0c431aafc53d98aefeca27abf
+"Directory %s does not exist.","Verzeichnis %s existiert nicht.",,site/modules/EmailService/EmailServiceConfig.php,aac68a9be719a2066ef0e4ec57bf263b
+"Wrapper file",Wrapper-Datei,,site/modules/EmailService/EmailServiceConfig.php,fe39f07b6b55f0d45a48a56be7bc5216
+"File name of the HTML wrapper","Dateiname des HTML-Wrappers",,site/modules/EmailService/EmailServiceConfig.php,1e2e9cb5a1a5fcf6e70bf43c4df70baf
+"Leave empty to send templates without wrapper.","Leer lassen, um Templates ohne Wrapper zu versenden.",,site/modules/EmailService/EmailServiceConfig.php,8461151b6365680f96922b7d5835000d
+"CSS file",CSS-Datei,,site/modules/EmailService/EmailServiceConfig.php,1547ffc579d657d13fd5fedf12cbfae5
+"File name for CSS inlining","Dateiname für CSS-Inlining",,site/modules/EmailService/EmailServiceConfig.php,79c3e85b35c34a1b05c65a5ba8e7dda0
+"Leave empty to disable CSS inlining.","Leer lassen, um CSS-Inlining zu deaktivieren.",,site/modules/EmailService/EmailServiceConfig.php,bdc87fd86dafaf3b08a8b23c1099197b
+"Default sender (email)","Standard-Absender (E-Mail)",,site/modules/EmailService/EmailServiceConfig.php,56c4f0fac1ee7d8a2afe8daba941da33
+"Falls back to $config->adminEmail if empty","Falls leer, wird $config->adminEmail verwendet",,site/modules/EmailService/EmailServiceConfig.php,09a01dd05c16d89fc659b724a72f1c18
+"Sender name",Absender-Name,,site/modules/EmailService/EmailServiceConfig.php,90ed58883831551ef960da4f7cde1240
+"Log retention (days)","Log-Aufbewahrung (Tage)",,site/modules/EmailService/EmailServiceConfig.php,22319b0ab6a15f64692dfad311d14159
+"Email log entries older than this number of days are deleted daily. 0 = unlimited.","E-Mail-Log-Einträge älter als diese Anzahl Tage werden täglich gelöscht. 0 = unbegrenzt.",,site/modules/EmailService/EmailServiceConfig.php,4b56ff9a7264beaa07a29be209890101
+"Runs via ProcessCronJobs.","Läuft über ProcessCronJobs.",,site/modules/EmailService/EmailServiceConfig.php,bbe4025398640330cb9a5c2d57c6ae02
+"Runs via LazyCron.","Läuft über LazyCron.",,site/modules/EmailService/EmailServiceConfig.php,cf1102a0bc9cbe551ba977db0a060b6e
+"Neither ProcessCronJobs nor LazyCron is installed, old entries are not deleted automatically.","Weder ProcessCronJobs noch LazyCron ist installiert, alte Einträge werden nicht automatisch gelöscht.",,site/modules/EmailService/EmailServiceConfig.php,db3670d3297f3a5e77cadb9ca4789491
+"CSS inlining",CSS-Inlining,,site/modules/EmailService/EmailServiceConfig.php,c522d1ffaf603ba50ae9dbc6b04d31c5
 "Email Log","E-Mail Logs",,site/modules/EmailService/ProcessEmailLog.module,9e07b564f108340ddde0d65b6ef59206
 "Entry not found.","Eintrag nicht gefunden.",,site/modules/EmailService/ProcessEmailLog.module,ac78884eba042183e8f47b5bb819c55f
 "Email Detail","E-Mail Details",,site/modules/EmailService/ProcessEmailLog.module,4c7b7ad16c40d0bd66c9630fe6982e5f

@@ -236,7 +236,7 @@ final class RegistryAndConfigTest extends TestCase
 		$notices->removeAll();
 		$before = 0;
 
-		$inputfields = $service->getModuleConfigInputfields(new InputfieldWrapper());
+		$inputfields = $this->configForm();
 
 		$this->assertNotNull($inputfields->getChildByName('templatePath'));
 		$this->assertNull($inputfields->getChildByName('autoloadFile'), 'The autoload file is not configurable.');
@@ -254,6 +254,40 @@ final class RegistryAndConfigTest extends TestCase
 			if ($notice instanceof NoticeWarning && str_contains($notice->text, 'pelago/emogrifier')) $found = true;
 		}
 		$this->assertTrue($found, 'A warning notice about the missing inliner is shown.');
+	}
+
+	/**
+	 * Build the module configuration form the way ProcessWire does (Modules > EmailService).
+	 */
+	private function configForm(): InputfieldWrapper
+	{
+		$form = $this->wire()->modules->getModuleConfigInputfields('EmailService');
+		$this->assertInstanceOf(InputfieldWrapper::class, $form);
+		return $form;
+	}
+
+	public function testConfigFollowsTheModuleConfigConvention(): void
+	{
+		$file = $this->wire()->modules->isConfigurable('EmailService', 'file');
+		$this->assertSame(dirname(__DIR__) . '/EmailServiceConfig.php', $file, 'ProcessWire finds EmailServiceConfig.php.');
+		$this->assertTrue(is_subclass_of(EmailServiceConfig::class, ModuleConfig::class));
+		$this->assertFalse(method_exists(EmailService::class, 'getModuleConfigInputfields'), 'The form is defined only in EmailServiceConfig.');
+
+		$this->assertSame(EmailServiceConfig::defaults, $this->service()->getDefaults());
+		$this->assertSame(EmailServiceConfig::defaults, $this->wire()->wire(new EmailServiceConfig())->getDefaults());
+	}
+
+	public function testConfigFormContainsAllSettingsWithStoredValues(): void
+	{
+		$data = $this->wire()->modules->getConfig('EmailService');
+		$form = $this->configForm();
+
+		foreach (EmailServiceConfig::defaults as $name => $default) {
+			$field = $form->getChildByName($name);
+			$this->assertNotNull($field, $name);
+			$expected = array_key_exists($name, $data) ? $data[$name] : $default;
+			$this->assertEquals($expected, $field->attr('value'), "Value of $name");
+		}
 	}
 
 	public function testModuleVersions(): void
