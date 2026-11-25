@@ -177,6 +177,23 @@ final class ProcessEmailLogTest extends TestCase
 		$this->assertSame('', $this->process()->renderIframe());
 	}
 
+	public function testIframeRendersLoggedEmailAsText(): void
+	{
+		$id = $this->insertLogRow(['body_html' => '<p>Logged body</p>', 'body_text' => "Logged <script>alert(1)</script>\nline two"]);
+
+		$this->setGet(['id' => (string) $id, 'format' => 'text']);
+		$html = $this->process()->renderIframe();
+
+		$this->assertStringContainsString('<meta charset="utf-8">', $html);
+		$this->assertStringContainsString("Logged &lt;script&gt;alert(1)&lt;/script&gt;\nline two</pre>", $html);
+		$this->assertStringNotContainsString('<script>', $html);
+		$this->assertStringNotContainsString('Logged body', $html);
+
+		// unknown formats show the HTML
+		$this->setGet(['id' => (string) $id, 'format' => 'pdf']);
+		$this->assertSame('<p>Logged body</p>', $this->process()->renderIframe());
+	}
+
 	/* ***** Preview page *** */
 
 	public function testPreviewPageWithoutSelection(): void
@@ -227,7 +244,8 @@ final class ProcessEmailLogTest extends TestCase
 		$this->assertMatchesRegularExpression('~<li class="uk-active">\s*<a href="[^"]*template=basic&amp;[^"]*" class="email-preview-template" aria-current="page"~', $out);
 
 		// initial JS state
-		$this->assertStringContainsString('{"format":"text","size":"tablet","language":' . $language->id . '}', $out);
+		$this->assertStringContainsString('data-state="{&quot;format&quot;:&quot;text&quot;,&quot;size&quot;:&quot;tablet&quot;,&quot;language&quot;:' . $language->id . '}"', $out);
+		$this->assertStringContainsString('data-sizes="' . htmlspecialchars(json_encode(ProcessEmailLog::previewSizes), ENT_QUOTES) . '"', $out);
 	}
 
 	public function testPreviewPageListsAllLanguages(): void
@@ -246,12 +264,12 @@ final class ProcessEmailLogTest extends TestCase
 		$out = $this->process()->executePreview();
 		$this->assertMatchesRegularExpression('~<div id="email-preview-text-hint"[^>]*>~', $out);
 		$this->assertDoesNotMatchRegularExpression('~<div id="email-preview-text-hint"[^>]*hidden~', $out);
-		$this->assertStringContainsString('var hasTextTemplate = false;', $out);
+		$this->assertStringContainsString('data-has-text="0"', $out);
 
 		$this->setGet(['template' => 'basic', 'format' => 'text']);
 		$out = $this->process()->executePreview();
 		$this->assertMatchesRegularExpression('~<div id="email-preview-text-hint"[^>]*hidden~', $out);
-		$this->assertStringContainsString('var hasTextTemplate = true;', $out);
+		$this->assertStringContainsString('data-has-text="1"', $out);
 
 		// html format: hint hidden, even without text template
 		$this->setGet(['template' => 'no-text', 'format' => 'html']);

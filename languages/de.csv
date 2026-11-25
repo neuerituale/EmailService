@@ -32,11 +32,16 @@ en,de,description,file,hash
 "Email to %s resent successfully.","E-Mail an %s erneut gesendet.",,site/modules/EmailService/ProcessEmailLog.module,d2a4e94e10bbdd75c33e5d0844c99f49
 "Failed to resend email to %s.","Fehler beim erneuten Senden der E-Mail an %s.",,site/modules/EmailService/ProcessEmailLog.module,9bc7736acb60abc5545d5951969bb010
 "You do not have permission to delete email logs.","Du hast keine Berechtigung, E-Mail-Logs zu löschen.",,site/modules/EmailService/ProcessEmailLog.module,fbc54f9fac8ff34f111d34c137868a3f
+"Invalid or expired form token, the entry was not deleted. Please try again.","Ungültiges oder abgelaufenes Formular-Token, der Eintrag wurde nicht gelöscht. Bitte versuche es noch einmal.",,site/modules/EmailService/ProcessEmailLog.module,13945842fe4e80eac9b2d1a41ab5c661
+"The entry could not be deleted.","Der Eintrag konnte nicht gelöscht werden.",,site/modules/EmailService/ProcessEmailLog.module,5cdc5d45bc151d76bc12823383ced946
+"Email log entry for %s deleted.","E-Mail-Log-Eintrag für %s gelöscht.",,site/modules/EmailService/ProcessEmailLog.module,6e20ba529ba66cd70f36efd80a9ecfef
 "%d email log entries deleted.","%d E-Mail-Log-Einträge gelöscht.",,site/modules/EmailService/ProcessEmailLog.module,d5cdf01f6af96a33621a825ee95ef2ba
 "Template Preview",Vorlagenvorschau,,site/modules/EmailService/ProcessEmailLog.module,db700481fed97a741f9c39c5d55cec65
-"All statuses","Alle Status",,site/modules/EmailService/views/execute.php,96e3d398260724e0a83da53a2e9f20e7
+All,Alle,,site/modules/EmailService/views/execute.php,b1c94ca2fbc3e78fc30069c8d0f01680
 Sent,Gesendet,,site/modules/EmailService/views/execute.php,7f8c0283f16925caed8e632086b81b9c
 Failed,Fehler,,site/modules/EmailService/views/execute.php,d7c8c85bf79bbe1b7188497c32c3b0ca
+Status,=,,site/modules/EmailService/views/execute.php,ec53a8c4f07baed5d8825072c89799be
+Template,Vorlage,,site/modules/EmailService/views/execute.php,278c491bdd8a53618c149c4ac790da34
 "All templates","Alle Vorlagen",,site/modules/EmailService/views/execute.php,d4e3a3afd7f0073d8b3967cf2995edc9
 "(no template)","(keine Vorlage)",,site/modules/EmailService/views/execute.php,1377fad570098533731c5cd2c7805403
 Reset,Zurücksetzen,,site/modules/EmailService/views/execute.php,526d688f37a86d3c3f27d0c5016eb71d
@@ -49,29 +54,31 @@ Reset,Zurücksetzen,,site/modules/EmailService/views/execute.php,526d688f37a86d3
 Date,Datum,,site/modules/EmailService/views/execute.php,44749712dbec183e983dcd78a7736c41
 Recipient,Empfänger,,site/modules/EmailService/views/execute.php,5d6103b662f41b07e10687f03aca8fdc
 Subject,Betreff,,site/modules/EmailService/views/execute.php,c7892ebbb139886662c6f2fc8c450710
-Template,Vorlage,,site/modules/EmailService/views/execute.php,278c491bdd8a53618c149c4ac790da34
-Status,=,,site/modules/EmailService/views/execute.php,ec53a8c4f07baed5d8825072c89799be
+Language,Sprache,,site/modules/EmailService/views/execute.php,4994a8ffeba4ac3140beb89e8d41f174
 "%d emails","%d E-Mails",,site/modules/EmailService/views/execute.php,6cdf5c080fe24265d8488b94d1f6e143
-Sent,Gesendet,,site/modules/EmailService/views/detail.php,7f8c0283f16925caed8e632086b81b9c
-Failed,Fehler,,site/modules/EmailService/views/detail.php,d7c8c85bf79bbe1b7188497c32c3b0ca
+"Resend this email?","Soll diese E-Mail erneut gesendet werden?",,site/modules/EmailService/views/detail.php,16fd4615e10dc003ec7002e49b5aeb67
+"Delete this email log entry?","Diesen E-Mail-Log-Eintrag löschen?",,site/modules/EmailService/views/detail.php,7ddd81737909cd952c0df3c7111a0db3
 Date,Datum,,site/modules/EmailService/views/detail.php,44749712dbec183e983dcd78a7736c41
 Recipient,Empfänger,,site/modules/EmailService/views/detail.php,5d6103b662f41b07e10687f03aca8fdc
 From,Von,,site/modules/EmailService/views/detail.php,5da618e8e4b89c66fe86e32cdafde142
 Subject,Betreff,,site/modules/EmailService/views/detail.php,c7892ebbb139886662c6f2fc8c450710
 Template,Vorlage,,site/modules/EmailService/views/detail.php,278c491bdd8a53618c149c4ac790da34
-Status,=,,site/modules/EmailService/views/detail.php,ec53a8c4f07baed5d8825072c89799be
-"Resend this email?","Soll diese E-Mail erneut gesendet werden?",,site/modules/EmailService/views/detail.php,16fd4615e10dc003ec7002e49b5aeb67
+"(no template)","(keine Vorlage)",,site/modules/EmailService/views/detail.php,1377fad570098533731c5cd2c7805403
+Language,Sprache,,site/modules/EmailService/views/detail.php,4994a8ffeba4ac3140beb89e8d41f174
+Details,=,,site/modules/EmailService/views/detail.php,3ec365dd533ddb7ef3d1c111186ce872
+Sent,Gesendet,,site/modules/EmailService/views/detail.php,7f8c0283f16925caed8e632086b81b9c
 Resend,"Erneut senden",,site/modules/EmailService/views/detail.php,1c0b8f236cc7ad13254af9a32ea15be8
-Phone,Smartphone,,site/modules/EmailService/views/preview.php,bcc254b55c4a1babdf1dcb82c207506b
-Tablet,=,,site/modules/EmailService/views/preview.php,36384a9ea3ec791e6bd4ab6b36f2ff2a
-Desktop,=,,site/modules/EmailService/views/preview.php,2310408a63388fe57e3a4177168a8798
-HTML,=,,site/modules/EmailService/views/preview.php,4c4ad5fca2e7a3f74dbb1ced00381aa4
-Text,=,,site/modules/EmailService/views/preview.php,9dffbf69ffba8bc38bc4e01abf4b1675
+Delete,Löschen,,site/modules/EmailService/views/detail.php,f2a6c498fb90ee345d997f888fce3b18
 "No templates registered. Use the EmailService::registerTemplates hook to register templates with sample data.","Es sind keine Vorlagen registriert. Verwende den Hook EmailService::registerTemplates, um Vorlagen mit Beispieldaten zu registrieren.",,site/modules/EmailService/views/preview.php,6ca8af709670741836dd22f92069c182
 Templates,Vorlagen,,site/modules/EmailService/views/preview.php,7df96b18c230f90ada0a9e2307226338
-Format,=,,site/modules/EmailService/views/preview.php,520d0db389f362bf79ef56ca0af3dcab
-Language,Sprache,,site/modules/EmailService/views/preview.php,4994a8ffeba4ac3140beb89e8d41f174
-Device,Gerät,,site/modules/EmailService/views/preview.php,e0ac20adce6ffee48c7151b070aa5737
 "This template has no text version (.txt.php). The text part is generated from the HTML.","Diese Vorlage hat keine Textversion (.txt.php). Der Text-Teil wird aus dem HTML erzeugt.",,site/modules/EmailService/views/preview.php,48c7d61182930bb617711eb1259b6674
 "Could not render template. Check that the template file exists and sample data is valid.","Die Vorlage konnte nicht gerendert werden. Bitte überprüfe, ob die Vorlagendatei vorhanden ist und die Beispieldaten gültig sind.",,site/modules/EmailService/views/preview.php,fbed23a602e5a856550d1054ea0fc62e
 "Select a template to preview.","Wähle eine Vorlage aus, um eine Vorschau anzuzeigen.",,site/modules/EmailService/views/preview.php,740d65fa901cde1366b7622283702148
+Phone,Smartphone,,site/modules/EmailService/views/_toolbar.php,bcc254b55c4a1babdf1dcb82c207506b
+Tablet,=,,site/modules/EmailService/views/_toolbar.php,36384a9ea3ec791e6bd4ab6b36f2ff2a
+Desktop,=,,site/modules/EmailService/views/_toolbar.php,2310408a63388fe57e3a4177168a8798
+HTML,=,,site/modules/EmailService/views/_toolbar.php,4c4ad5fca2e7a3f74dbb1ced00381aa4
+Text,=,,site/modules/EmailService/views/_toolbar.php,9dffbf69ffba8bc38bc4e01abf4b1675
+Format,=,,site/modules/EmailService/views/_toolbar.php,520d0db389f362bf79ef56ca0af3dcab
+Language,Sprache,,site/modules/EmailService/views/_toolbar.php,4994a8ffeba4ac3140beb89e8d41f174
+Device,Gerät,,site/modules/EmailService/views/_toolbar.php,e0ac20adce6ffee48c7151b070aa5737

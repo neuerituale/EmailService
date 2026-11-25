@@ -1,61 +1,63 @@
-.ProcessEmailLog .MarkupPagerNav {
-	float: right;
-}
-
 /* no space below the content, the footer has its own margin: #main has the class
    uk-margin-large-bottom (40px, 70px from @l) which is set with !important */
 body.ProcessEmailLog #main.uk-margin-large-bottom {
 	margin-bottom: 0 !important;
 }
 
-/* ***** Template preview: only corrections of the admin theme defaults *** */
+/* ***** Overview, detail and template preview: only corrections of the admin theme defaults *** */
 
-#email-preview a {
+.email-ui a,
+/* the admin theme underlines links in cards with .uk-card :is(a, .uk-link) */
+.email-ui .uk-card a {
 	text-decoration: none;
 }
 
-#email-preview .uk-nav {
+.email-ui .uk-nav {
 	margin: 0 -10px;
 }
 
-#email-preview .uk-nav > li > a {
+.email-ui .uk-nav > li > a {
 	padding: 6px 10px;
 	border-radius: 4px;
 }
 
-#email-preview .uk-nav > li.uk-active > a {
+.email-ui .uk-nav > li.uk-active > a {
 	background: rgba(0, 0, 0, .06);
 	font-weight: 600;
 }
 
 /* active device: same look as the active subnav pill */
-#email-preview .uk-iconnav > li > a {
+.email-ui .uk-iconnav > li > a {
 	padding: 5px;
 	border-radius: 4px;
 }
 
-#email-preview .uk-iconnav > li.uk-active > a {
+.email-ui .uk-iconnav > li.uk-active > a {
 	background: #111;
 	color: #fff;
 }
 
-/* both bars (template heading, settings) have the same height, so the boxes line up */
-#email-preview .email-preview-bar {
+/* all bars have the same height, so the boxes below line up */
+.email-ui .email-bar {
 	min-height: 40px;
 	padding-bottom: 8px;
 	border-bottom: 1px solid var(--pw-border-color);
 }
 
-/* heading of the template list: same size as the buttons next to it */
-#email-preview .email-preview-label {
+.email-ui .email-toolbar {
+	gap: 8px 32px;
+}
+
+/* heading of a bar: same size as the buttons next to it */
+.email-ui .email-bar-label {
 	font-size: .875rem;
 	font-weight: 600;
 	line-height: 1.5;
 	color: inherit;
 }
 
-/* template count: neutral instead of the primary badge color */
-#email-preview .email-preview-count {
+/* count: neutral instead of the primary badge color */
+.email-ui .email-bar-count {
 	min-width: 20px;
 	height: 20px;
 	padding: 0 6px;
@@ -67,23 +69,97 @@ body.ProcessEmailLog #main.uk-margin-large-bottom {
 }
 
 /* buttons of one group closer together */
-#email-preview .uk-subnav {
+.email-ui .uk-subnav {
 	margin-left: -4px;
 }
 
-#email-preview .uk-subnav > * {
+.email-ui .uk-subnav > * {
 	padding-left: 4px;
 }
 
 /* same slight rounding as the device buttons */
-#email-preview .uk-subnav-pill > * > a {
+.email-ui .uk-subnav-pill > * > a,
+.email-ui .uk-button,
+.email-ui .uk-select,
+.email-ui .uk-label {
 	border-radius: 4px;
 }
 
-#email-preview .uk-iconnav {
+.email-ui .uk-iconnav {
 	margin-left: -4px;
 }
 
-#email-preview .uk-iconnav > * {
+.email-ui .uk-iconnav > * {
 	padding-left: 4px;
+}
+
+/* actions: small buttons like the pills */
+.email-ui .email-actions {
+	gap: 8px;
+}
+
+.email-ui .uk-button-small {
+	text-transform: none;
+	font-size: .875rem;
+}
+
+.email-ui .email-delete:hover {
+	color: var(--pw-error-color, #e74c3c);
+}
+
+.email-ui .email-reset {
+	color: inherit;
+	opacity: .5;
+}
+
+.email-ui .email-reset:hover {
+	opacity: 1;
+}
+
+/* status */
+.email-ui .email-status {
+	font-size: .75rem;
+	text-transform: none;
+	white-space: nowrap;
+}
+
+/* list of emails */
+.email-ui .email-log-table th {
+	text-transform: none;
+}
+
+.email-ui .email-log-table td a {
+	color: inherit;
+}
+
+.email-ui .email-log-table td a:hover {
+	text-decoration: underline;
+}
+
+/* data of a logged email */
+/* the admin theme gives description lists their own box */
+.email-ui .email-meta {
+	padding: 0;
+	border: 0;
+	outline: 0;
+	box-shadow: none;
+	background: none;
+}
+
+.email-ui .email-meta > dt {
+	text-transform: none;
+	font-size: .75rem;
+}
+
+.email-ui .email-meta > dt:not(:first-child) {
+	margin-top: 10px;
+	padding-top: 10px;
+}
+
+.email-ui .email-meta > dd {
+	overflow-wrap: anywhere;
+}
+
+.email-ui .MarkupPagerNav {
+	margin: 0;
 }

@@ -235,6 +235,7 @@ abstract class TestCase extends BaseTestCase
 			'from_email' => 'sender@example.test',
 			'subject' => 'Subject',
 			'template' => '',
+			'language' => '',
 			'body_html' => '<p>HTML</p>',
 			'body_text' => 'Text',
 			'status' => 'sent',

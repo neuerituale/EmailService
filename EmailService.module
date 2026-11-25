@@ -68,7 +68,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '2.3.0',
+			'version' => '2.4.0',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -545,6 +545,9 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		$mail->set('_emailServiceLogged', true);
 		$sent = $mail->send() > 0;
 
+		// the language the email was rendered in (the current user language if none was given)
+		$usedLanguage = $language ?: ($this->hasLanguageSupport() ? $this->wire('user')->get('language') : null);
+
 		$this->writeLogEntry(
 			is_array($options['to']) ? implode(', ', $options['to']) : (string) $options['to'],
 			(string) $options['from'],
@@ -552,7 +555,8 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			(string) $options['template'],
 			$html,
 			$text,
-			$sent
+			$sent,
+			$usedLanguage instanceof Language ? $usedLanguage->name : ''
 		);
 
 		return $sent;
@@ -610,7 +614,8 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 			$entry['template'],
 			$entry['body_html'],
 			$entry['body_text'],
-			$sent
+			$sent,
+			(string) ($entry['language'] ?? '')
 		);
 
 		return $sent;
@@ -818,6 +823,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 * @param string $html
 	 * @param string $text
 	 * @param bool $sent
+	 * @param string $language Name of the language the email was rendered in
 	 * @throws WireException
 	 */
 	protected function writeLogEntry(
@@ -827,20 +833,22 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		string $template,
 		string $html,
 		string $text,
-		bool $sent
+		bool $sent,
+		string $language = ''
 	): void {
 		try {
 			$db = $this->wire('database');
 			$stmt = $db->prepare(
 				"INSERT INTO `" . self::logTable . "`
-				 (`to_email`, `from_email`, `subject`, `template`, `body_html`, `body_text`, `status`, `created`)
-				 VALUES (:to_email, :from_email, :subject, :template, :body_html, :body_text, :status, :created)"
+				 (`to_email`, `from_email`, `subject`, `template`, `language`, `body_html`, `body_text`, `status`, `created`)
+				 VALUES (:to_email, :from_email, :subject, :template, :language, :body_html, :body_text, :status, :created)"
 			);
 			$stmt->execute([
 				':to_email' => mb_substr($to, 0, 255),
 				':from_email' => mb_substr($from, 0, 255),
 				':subject' => mb_substr($subject, 0, 255),
 				':template' => mb_substr($template, 0, 128),
+				':language' => mb_substr($language, 0, 128),
 				':body_html' => $html,
 				':body_text' => $text,
 				':status' => $sent ? 'sent' : 'failed',
@@ -906,6 +914,11 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	public function ___upgrade($fromVersion, $toVersion): void {
 		$this->createLogTable();
 
+		// < 2.4.0: the log did not store the language
+		if ($this->addLogLanguageColumn()) {
+			$this->message("EmailService: column 'language' added to the email log");
+		}
+
 		// < 2.1.0: ProcessEmailLog had to be installed manually
 		$modules = $this->wire('modules');
 		if (!$modules->isInstalled('ProcessEmailLog') && $modules->isInstallable('ProcessEmailLog', true)) {
@@ -934,6 +947,28 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Add the language column to email log tables created before 2.4.0.
+	 *
+	 * Note: ALTER TABLE ends a running database transaction.
+	 *
+	 * @return bool True if the column was added
+	 */
+	protected function addLogLanguageColumn(): bool {
+		$database = $this->wire('database');
+		$stmt = $database->prepare("SHOW COLUMNS FROM `" . self::logTable . "` LIKE 'language'");
+		$stmt->execute();
+		$exists = (bool) $stmt->fetch();
+		$stmt->closeCursor();
+		if ($exists) return false;
+
+		$database->exec(
+			"ALTER TABLE `" . self::logTable . "`"
+			. " ADD COLUMN `language` VARCHAR(128) NOT NULL DEFAULT '' AFTER `template`"
+		);
+		return true;
+	}
+
+	/**
 	 * Create the email log table if it does not exist yet.
 	 */
 	protected function createLogTable(): void {
@@ -944,6 +979,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 				`from_email` VARCHAR(255) NOT NULL DEFAULT '',
 				`subject`    VARCHAR(255) NOT NULL DEFAULT '',
 				`template`   VARCHAR(128) NOT NULL DEFAULT '',
+				`language`   VARCHAR(128) NOT NULL DEFAULT '',
 				`body_html`  MEDIUMTEXT   NULL,
 				`body_text`  MEDIUMTEXT   NULL,
 				`status`     ENUM('sent','failed') NOT NULL DEFAULT 'sent',

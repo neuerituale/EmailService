@@ -136,7 +136,7 @@ final class ResendTest extends TestCase
 		$out = $this->process()->executeDetail();
 
 		$this->assertMatchesRegularExpression(
-			'~<form method="post" action="' . preg_quote($this->adminPage->url, '~') . 'resend/"[^>]*>\s*'
+			'~<form method="post" action="' . preg_quote($this->adminPage->url, '~') . 'resend/" data-confirm="Resend this email\?">\s*'
 			. '<input type="hidden" name="id" value="' . $this->entryId . '">\s*'
 			. '<input type=.hidden. name=.' . preg_quote(array_key_first($csrf), '~') . '. value=.' . preg_quote(current($csrf), '~') . '.~',
 			$out

@@ -21,7 +21,7 @@ class ProcessEmailLog extends Process implements Module
 	{
 		return [
 			'title' => 'Email Log',
-			'version' => '1.1.0',
+			'version' => '1.2.0',
 			'summary' => 'Browse sent emails, preview templates and resend.',
 			'icon' => 'envelope',
 			'singular' => true,
@@ -83,8 +83,10 @@ class ProcessEmailLog extends Process implements Module
 			'filterTemplate' => $filterTemplate,
 			'templates' => $templates,
 			'usedTemplates' => $usedTemplates,
+			'languages' => $emailService->getLanguages(),
 			'pager' => $pager,
 			'total' => $total,
+			'process' => $this,
 			'adminPage' => $this->wire('page'),
 		]);
 
@@ -115,13 +117,64 @@ class ProcessEmailLog extends Process implements Module
 		$this->showDependencyWarnings();
 		$this->addLogBreadcrumb();
 
+		/** @var EmailService $emailService */
+		$emailService = $this->wire('modules')->get('EmailService');
+		$state = $this->getDetailState();
+
 		$tpl = new TemplateFile(__DIR__ . '/views/detail.php');
 		$tpl->setArray([
 			'entry' => $entry,
+			'state' => $state,
+			'sizes' => self::previewSizes,
+			'templates' => $emailService->getRegisteredTemplates(),
+			'languages' => $emailService->getLanguages(),
+			'iframeUrl' => $this->wire('page')->url . 'iframe/?' . http_build_query(['id' => (int) $entry['id'], 'format' => $state['format']]),
+			'process' => $this,
 			'adminPage' => $this->wire('page'),
 		]);
 
 		return $tpl->render();
+	}
+
+	/**
+	 * Get the sanitized view settings of the detail page (format and device).
+	 *
+	 * @return array{format: string, size: string}
+	 * @throws WireException
+	 */
+	public function getDetailState(): array
+	{
+		$input = $this->wire('input');
+		$sanitizer = $this->wire('sanitizer');
+
+		$format = $sanitizer->name((string) $input->get('format'));
+		if (!in_array($format, self::previewFormats, true)) $format = 'html';
+
+		$size = $sanitizer->name((string) $input->get('size'));
+		if (!isset(self::previewSizes[$size])) $size = 'desktop';
+
+		return ['format' => $format, 'size' => $size];
+	}
+
+	/**
+	 * Get the label of a language stored in the log (title, else name).
+	 *
+	 * @param string $name Language name
+	 * @return string Empty if no language is stored
+	 * @throws WireException
+	 */
+	public function getLanguageLabel(string $name): string
+	{
+		if ($name === '') return '';
+
+		/** @var EmailService $emailService */
+		$emailService = $this->wire('modules')->get('EmailService');
+		foreach ($emailService->getLanguages() as $language) {
+			if ($language->name === $name) return (string) $language->get('title') ?: $language->name;
+		}
+
+		// language was deleted in the meantime
+		return $name;
 	}
 
 	/* ***** Resend *** */
@@ -178,6 +231,62 @@ class ProcessEmailLog extends Process implements Module
 		}
 
 		return $detailUrl;
+	}
+
+	/* ***** Delete a single entry *** */
+
+	/**
+	 * Handle the delete POST request for a single log entry.
+	 *
+	 * @return string
+	 * @throws WireException
+	 */
+	public function ___executeDeleteEntry(): string
+	{
+		$this->wire('session')->redirect($this->processDeleteEntry());
+		return '';
+	}
+
+	/**
+	 * Delete a single log entry (superusers only, CSRF protected).
+	 *
+	 * @return string URL to redirect to: the overview after deleting, else the detail page
+	 * @throws WireException
+	 */
+	public function processDeleteEntry(): string
+	{
+		$input = $this->wire('input');
+		$session = $this->wire('session');
+		$adminUrl = $this->wire('page')->url;
+
+		if (!$input->post('submit_delete_entry')) return $adminUrl;
+
+		$id = (int) $input->post('id');
+		$detailUrl = $id > 0 ? $adminUrl . 'detail/?id=' . $id : $adminUrl;
+
+		if (!$this->wire('user')->isSuperuser()) {
+			$this->error(__('You do not have permission to delete email logs.'));
+			return $detailUrl;
+		}
+
+		if (!$session->CSRF->hasValidToken()) {
+			$this->error(__('Invalid or expired form token, the entry was not deleted. Please try again.'));
+			return $detailUrl;
+		}
+
+		$entry = $id > 0 ? $this->getEntry($id) : false;
+		if (!$entry) {
+			$this->error(__('Entry not found.'));
+			return $adminUrl;
+		}
+
+		if (!$this->deleteEntry($id)) {
+			$this->error(__('The entry could not be deleted.'));
+			return $detailUrl;
+		}
+
+		$this->message(sprintf(__('Email log entry for %s deleted.'), $entry['to_email']));
+		return $adminUrl;
 	}
 
 	/* ***** Delete *** */
@@ -388,12 +497,14 @@ class ProcessEmailLog extends Process implements Module
 	public function renderIframe(): string
 	{
 		$input = $this->wire('input');
-		$sanitizer = $this->wire('sanitizer');
 
 		$id = (int) $input->get('id');
 		if ($id > 0) {
 			$entry = $this->getEntry($id);
-			return $entry ? (string) $entry['body_html'] : '';
+			if (!$entry) return '';
+			return $input->get('format') === 'text'
+				? $this->renderTextDocument((string) $entry['body_text'])
+				: (string) $entry['body_html'];
 		}
 
 		/** @var EmailService $emailService */
@@ -405,14 +516,25 @@ class ProcessEmailLog extends Process implements Module
 		$sampleData = $emailService->getSampleData($state['template'], $language);
 
 		if ($state['format'] === 'text') {
-			$text = $emailService->renderTextBody($state['template'], $sampleData, $language);
-			return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
-				. '<pre style="white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:14px;padding:20px;margin:0;">'
-				. $sanitizer->entities($text)
-				. '</pre></body></html>';
+			return $this->renderTextDocument($emailService->renderTextBody($state['template'], $sampleData, $language));
 		}
 
 		return $emailService->render($state['template'], $sampleData, $language);
+	}
+
+	/**
+	 * Wrap a plain text email in an HTML document for the iframe.
+	 *
+	 * @param string $text
+	 * @return string
+	 * @throws WireException
+	 */
+	protected function renderTextDocument(string $text): string
+	{
+		return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
+			. '<pre style="white-space:pre-wrap;word-break:break-word;font-family:monospace;font-size:14px;padding:20px;margin:0;">'
+			. $this->wire('sanitizer')->entities($text)
+			. '</pre></body></html>';
 	}
 
 	/* ***** Helpers *** */
@@ -529,7 +651,7 @@ class ProcessEmailLog extends Process implements Module
 			[$where, $params] = $this->buildWhere($status, $template);
 
 			$stmt = $db->prepare(
-				"SELECT `id`, `to_email`, `from_email`, `subject`, `template`, `status`, `created`
+				"SELECT `id`, `to_email`, `from_email`, `subject`, `template`, `language`, `status`, `created`
 				 FROM `" . EmailService::logTable . "` {$where}
 				 ORDER BY `created` DESC
 				 LIMIT :limit OFFSET :offset"
@@ -592,6 +714,26 @@ class ProcessEmailLog extends Process implements Module
 		} catch (\Exception $e) {
 			$this->wire('log')->save(EmailService::logName, "deleteEntries() failed: " . $e->getMessage());
 			return 0;
+		}
+	}
+
+	/**
+	 * Delete a single email log entry.
+	 *
+	 * @param int $id
+	 * @return bool True if a row was deleted
+	 * @throws WireException
+	 */
+	protected function deleteEntry(int $id): bool
+	{
+		try {
+			$stmt = $this->wire('database')->prepare("DELETE FROM `" . EmailService::logTable . "` WHERE `id` = :id LIMIT 1");
+			$stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+			$stmt->execute();
+			return $stmt->rowCount() > 0;
+		} catch (\Exception $e) {
+			$this->wire('log')->save(EmailService::logName, "deleteEntry() failed: " . $e->getMessage());
+			return false;
 		}
 	}
 

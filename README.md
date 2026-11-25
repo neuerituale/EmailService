@@ -257,10 +257,10 @@ Weitere Beispiele stehen in [`examples/ready.php`](examples/ready.php).
 
 ## Log
 
-Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absender, Betreff, Template, HTML, Text, Status (`sent`/`failed`) und Zeitpunkt.
+Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absender, Betreff, Template, Sprache, HTML, Text, Status (`sent`/`failed`) und Zeitpunkt.
 
-- **Über `send()`:** Diese E-Mails werden mit Template-Namen geloggt.
-- **Direkt über `WireMail`:** Mails von anderen Modulen, z. B. ProcessForgotPassword, werden per Hook ebenfalls geloggt, aber ohne Template-Namen. Über den Hook `EmailService::detectTemplate` lässt sich einer zuordnen:
+- **Über `send()`:** Diese E-Mails werden mit Template-Namen und dem Namen der Sprache geloggt, in der sie gerendert wurden (Option `language`, sonst die aktuelle Sprache). **Erneut senden** übernimmt die Sprache des ursprünglichen Eintrags.
+- **Direkt über `WireMail`:** Mails von anderen Modulen, z. B. ProcessForgotPassword, werden per Hook ebenfalls geloggt, aber ohne Template-Namen und ohne Sprache. Über den Hook `EmailService::detectTemplate` lässt sich einer zuordnen:
 
   ```php
   $wire->addHookAfter('EmailService::detectTemplate', function(HookEvent $event) {
@@ -279,9 +279,9 @@ Jede E-Mail wird in der Tabelle `email_log` gespeichert, mit Empfänger, Absende
 
 **Setup > Email Log** benötigt die Permission `email-log-view`.
 
-- Liste aller E-Mails, filterbar nach Status und Template, mit Pagination
-- Detailansicht mit HTML-Vorschau und **Erneut senden**
-- Löschen aller bzw. der gefilterten Einträge (nur Superuser)
+- Liste aller E-Mails, filterbar nach Status und Template, mit Pagination und, bei mehreren Sprachen, einer Spalte für die Sprache
+- Detailansicht mit allen Daten inkl. Sprache, der E-Mail als HTML oder Text in Phone-, Tablet- und Desktop-Breite und **Erneut senden**
+- Löschen einzelner Einträge in der Detailansicht sowie aller bzw. der gefilterten Einträge in der Liste (nur Superuser)
 - Vorschau registrierter Templates mit Beispieldaten in Phone-, Tablet- und Desktop-Breite, als HTML und als Text, in allen Sprachen
 
 ## Namen
@@ -320,4 +320,5 @@ Beim Aktualisieren der Moduldateien führt ProcessWire `___upgrade()` automatisc
 - **< 2.1.0:** `ProcessEmailLog` wird nachinstalliert, falls es fehlt.
 - **< 2.2.0:** Ein bisheriger root-relativer Template-Pfad wie `/site/templates/email/` wird auf `email/` umgestellt. Der alte Wert würde aber auch ohne Umstellung weiterhin aufgelöst.
 - **2.3.0 / ProcessEmailLog 1.1.0:** Mehrsprachigkeit. `registerTemplate()` akzeptiert eine Closure als Beispieldaten. Die Seite „Email Log“ bekommt übersetzte Titel. Rückwärtskompatibel: Ohne `language` wird wie bisher in der aktuellen Sprache gerendert.
+- **2.4.0 / ProcessEmailLog 1.2.0:** Die Log-Tabelle bekommt die Spalte `language`. Bestehende Einträge behalten eine leere Sprache. Übersicht und Detailansicht haben das Layout der Vorschau. Hinweis: `ALTER TABLE` beendet in MySQL eine laufende Transaktion, das Upgrade daher nicht innerhalb einer Transaktion auslösen.
 - **2.2.0:** Die fest eingebaute Zuordnung der ProcessForgotPassword-Mail (`ProcessUserPage::passwordResetSubject`) entfällt. Wer sie braucht, nutzt den Hook `EmailService::detectTemplate` (s. o.).

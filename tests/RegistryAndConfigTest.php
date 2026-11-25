@@ -208,7 +208,7 @@ final class RegistryAndConfigTest extends TestCase
 
 	public function testModuleVersions(): void
 	{
-		$this->assertSame('2.3.0', EmailService::getModuleInfo()['version']);
-		$this->assertSame('1.1.0', ProcessEmailLog::getModuleInfo()['version']);
+		$this->assertSame('2.4.0', EmailService::getModuleInfo()['version']);
+		$this->assertSame('1.2.0', ProcessEmailLog::getModuleInfo()['version']);
 	}
 }
