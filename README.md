@@ -171,7 +171,7 @@ $sent = $emailService->send([
 ]);
 ```
 
-`send()` returns `false` if `to` or `template` is missing, the template file does not exist or sending fails. Missing templates are noted in the `email-service` log.
+`send()` returns `false` if `to` or `template` is missing, the template file does not exist or sending fails. Missing templates are noted in the `email-service` log. If the mail module throws an exception (e.g. an invalid address or an SMTP/API error), `send()` and `resend()` catch it, log the email as failed and note the error in the `email-service` log.
 
 ### send() options
 
@@ -188,6 +188,13 @@ $sent = $emailService->send([
 | `language` | Language\|int\|string | Language (object, ID or name) to render in. Default: current user language |
 
 `cc`/`bcc` use `$mail->cc()`/`bcc()` if the mail module provides them (e.g. WireMailSmtp), otherwise the respective header.
+
+### Mail modules (WireMailSmtp and others)
+
+EmailService sends through `$mail->new()`, so it uses whichever WireMail module is active (core WireMail, WireMailSmtp, WireMailPHPMailer, …). Emails sent directly via WireMail are logged by a hook on `WireMail::send`, which also covers these modules.
+
+- **CC with WireMailSmtp:** WireMailSmtp sends a separate message to every TO address and only delivers CC with `sendSingle(true)`. EmailService sets this automatically when `cc` is given and there is exactly one recipient. With several TO addresses, CC is not possible with WireMailSmtp; a warning is written to the `email-service` log.
+- **Sender in the log:** the log stores the sender the mail module actually uses, e.g. the forced sender of WireMailSmtp.
 
 ### Render only (without sending)
 
@@ -328,6 +335,7 @@ vendor/bin/phpunit
 
 When the module files are updated, ProcessWire runs `___upgrade()` automatically (Modules > Refresh):
 
+- **3.0.1:** CC is delivered with WireMailSmtp (`sendSingle`), the log shows the sender actually used, exceptions of the mail module are logged as failed instead of aborting `send()`/`resend()`.
 - **2.7.0:** Optional text wrapper `wrapper.txt.php` for `.txt.php` templates. Without this file nothing changes.
 - **2.6.0:** The option **Composer autoload file** is gone, the upgrade removes the stored value. Emogrifier is only loaded from the project autoloader or from the module's `vendor/`, no longer from `site/vendor/` or a parent directory.
 - **2.5.0:** The template path is now relative to the ProcessWire root instead of `/site/templates/`. The upgrade converts a stored value, e.g. `email/` → `site/templates/email/`. The fields of the module configuration are always open.

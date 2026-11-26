@@ -70,7 +70,7 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		return [
 			'title' => 'Email Service',
 			'summary' => 'Templated emails with CSS inlining and logging',
-			'version' => '3.0.0',
+			'version' => '3.0.1',
 			'autoload' => true,
 			'singular' => true,
 			'icon' => 'envelope',
@@ -537,25 +537,25 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 		});
 		if ($html === '') return false;
 
+		$to = is_array($options['to']) ? implode(', ', $options['to']) : (string) $options['to'];
 		$mail = $this->wire('mail')->new();
-		$mail->to($options['to']);
-		$mail->from($options['from'], $options['fromName']);
-		$mail->subject($options['subject']);
-		$mail->bodyHTML($html);
-		$mail->body($text);
+		$sent = $this->sendMail($mail, $to, function(WireMail $mail) use ($options, $html, $text) {
+			$mail->to($options['to']);
+			$mail->from($options['from'], $options['fromName']);
+			$mail->subject($options['subject']);
+			$mail->bodyHTML($html);
+			$mail->body($text);
 
-		$this->addCopyRecipients($mail, 'cc', $options['cc']);
-		$this->addCopyRecipients($mail, 'bcc', $options['bcc']);
-
-		$mail->set('_emailServiceLogged', true);
-		$sent = $mail->send() > 0;
+			$this->addCopyRecipients($mail, 'cc', $options['cc']);
+			$this->addCopyRecipients($mail, 'bcc', $options['bcc']);
+		});
 
 		// the language the email was rendered in (the current user language if none was given)
 		$usedLanguage = $language ?: ($this->hasLanguageSupport() ? $this->wire('user')->get('language') : null);
 
 		$this->writeLogEntry(
-			is_array($options['to']) ? implode(', ', $options['to']) : (string) $options['to'],
-			(string) $options['from'],
+			$to,
+			$this->usedFrom($mail, (string) $options['from']),
 			(string) $options['subject'],
 			(string) $options['template'],
 			$html,
@@ -589,9 +589,73 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 
 		if (method_exists($mail, $type) || method_exists($mail, "___$type")) {
 			$mail->$type($list);
+			if ($type === 'cc') $this->enableCopyDelivery($mail);
 		} else {
 			$mail->header($type === 'cc' ? 'Cc' : 'Bcc', implode(', ', $list));
 		}
+	}
+
+	/**
+	 * Make sure CC recipients are delivered by mailers that send one message per recipient.
+	 *
+	 * WireMailSmtp sends a separate message to every TO address and ignores CC, unless
+	 * sendSingle(true) is set. That only works with a single TO address, with more
+	 * recipients CC is not possible and a warning is logged.
+	 *
+	 * @param WireMail $mail
+	 */
+	protected function enableCopyDelivery(WireMail $mail): void {
+		if (!method_exists($mail, 'sendSingle')) return;
+
+		if (count((array) $mail->get('to')) === 1) {
+			$mail->sendSingle(true);
+			return;
+		}
+
+		$this->wire('log')->save(self::logName, sprintf(
+			'%s ignores CC recipients when sending to more than one TO address, CC was not sent.',
+			wireClassName($mail)
+		));
+	}
+
+	/**
+	 * Build and send a mail; exceptions of the mail module count as a failed send.
+	 *
+	 * The mail is marked, so the WireMail::send hook doesn't log it a second time.
+	 *
+	 * @param WireMail $mail
+	 * @param string $to Recipients for the error message
+	 * @param callable $build Sets the recipients, subject and body of the mail
+	 * @return bool True if at least one message was sent
+	 */
+	protected function sendMail(WireMail $mail, string $to, callable $build): bool {
+		$mail->set('_emailServiceLogged', true);
+		try {
+			$build($mail);
+			return $mail->send() > 0;
+		} catch (\Exception $e) {
+			$this->wire('log')->save(self::logName, sprintf(
+				'Sending to %s via %s failed: %s',
+				$to,
+				wireClassName($mail),
+				$e->getMessage()
+			));
+			return false;
+		}
+	}
+
+	/**
+	 * The sender the mail module actually uses, it may replace the given one
+	 * (e.g. WireMailSmtp with "force sender" or an empty from address).
+	 *
+	 * @param WireMail $mail
+	 * @param string $fallback Given sender, used if the mail has none (e.g. it failed before from() was set)
+	 * @return string
+	 */
+	protected function usedFrom(WireMail $mail, string $fallback): string {
+		$from = $mail->get('from');
+		if (is_array($from)) $from = implode(', ', $from);
+		return (string) $from !== '' ? (string) $from : $fallback;
 	}
 
 	/**
@@ -603,18 +667,17 @@ class EmailService extends WireData implements Module, ConfigurableModule {
 	 */
 	public function resend(array $entry): bool {
 		$mail = $this->wire('mail')->new();
-		$mail->to($entry['to_email']);
-		$mail->from($entry['from_email'], $this->defaultFromName ?: '');
-		$mail->subject($entry['subject']);
-		$mail->bodyHTML($entry['body_html']);
-		$mail->body($entry['body_text']);
-
-		$mail->set('_emailServiceLogged', true);
-		$sent = $mail->send() > 0;
+		$sent = $this->sendMail($mail, (string) $entry['to_email'], function(WireMail $mail) use ($entry) {
+			$mail->to($entry['to_email']);
+			$mail->from($entry['from_email'], $this->defaultFromName ?: '');
+			$mail->subject($entry['subject']);
+			$mail->bodyHTML($entry['body_html']);
+			$mail->body($entry['body_text']);
+		});
 
 		$this->writeLogEntry(
 			$entry['to_email'],
-			$entry['from_email'],
+			$this->usedFrom($mail, (string) $entry['from_email']),
 			$entry['subject'],
 			$entry['template'],
 			$entry['body_html'],

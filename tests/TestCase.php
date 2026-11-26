@@ -22,6 +22,9 @@ abstract class TestCase extends BaseTestCase
 	/** @var int Return value of the intercepted WireMail::send (number of recipients) */
 	protected int $mailResult = 1;
 
+	/** @var \Exception|null Thrown by the intercepted WireMail::send, like a failing mail module */
+	protected ?\Exception $mailException = null;
+
 	/** @var string[] Lines written to the email-service log during the test */
 	protected array $logLines = [];
 
@@ -90,6 +93,7 @@ abstract class TestCase extends BaseTestCase
 		$this->hookIds[] = $wire->addHookBefore('WireMail::send', function(HookEvent $event) {
 			$this->sentMails[] = $event->object;
 			$event->replace = true;
+			if ($this->mailException) throw $this->mailException;
 			$event->return = $this->mailResult;
 		}, ['priority' => 1]);
 
